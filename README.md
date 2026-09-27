@@ -27,12 +27,17 @@ URL parameters (for testing):
 | `?source=agg\|binance\|bybit\|coinbase` | Data source for this visit (overrides the saved menu choice) |
 | `?lang=ru` / `?lang=en` | Force language for this visit (not persisted) |
 | `?debug=1` | FPS / round / feed-status readout on the field |
+| `?progtest=1` | Achievements/profile QA: tracking allowed together with test params, stored under `test_`-prefixed keys |
 
 Console handle `__sb`: `__sb.market.debugBigprint('buy', 'giant')` (or `'big'`), `__sb.paused = true` + `__sb.step(seconds)`
 to advance the scene deterministically, `__sb.forceActive = true` to let events reach the scene while the tab is hidden,
 `__sb.market.debugCloseVenue('binance')` to kill a venue mid-run.
 
 Scores are kept separately for live data and DEMO (`localStorage` keys `sb.score.v1` / `sb.score.demo.v1`).
+
+Achievements & profile (v1.05, see `gamification/V105-CLIENT.md`): stored in Telegram CloudStorage
+(`sb_prog_v1`, Bot API 6.9+) with a localStorage mirror (`sb.prog.v1.<uid>`). Nothing counts in DEMO or on
+test links. QA console: `__sb.progress.state`, `.set({ gi: 24 })`, `.fakeDay(1)`, `.reset()`, `.flush()`.
 
 ## Data sources
 
@@ -71,6 +76,19 @@ The project root *is* the site — upload it as-is. HTTPS is required for Telegr
   URL: `https://<user>.github.io/<repo>/`
 - **Netlify**: drag-and-drop the folder at app.netlify.com/drop, or connect the repo (build command: none, publish dir: `.`).
 - **Vercel**: `New Project` → import repo → Framework preset "Other", no build command, output dir `.`.
+
+## Releasing (cache-busting)
+
+GitHub Pages serves files with `max-age=600` and Telegram WebViews cache hard, so a client could
+mix old and new ES modules right after a deploy. **Run this before every release commit:**
+
+```sh
+python3 tools/release.py          # stamps ?v=<git short hash> into all relative imports + index.html
+python3 tools/release.py --check  # exit 1 if anything is unstamped / stale (e.g. in a pre-push hook)
+```
+
+It is idempotent (an existing `?v=` is replaced) and stdlib-only. Local development does not need it:
+unstamped imports work fine.
 
 ## Register as a Telegram Mini App
 

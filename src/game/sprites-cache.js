@@ -1,6 +1,6 @@
 // Bakes sprite data (src/sprites.js) into cached offscreen canvases, one per (sprite, team, frame).
 // Team-swappable chars (H h S s) are replaced by TEAM_COLORS[team]; sprites without them are baked once.
-import { PALETTE, TEAM_COLORS, SPRITES, UI } from '../sprites.js';
+import { PALETTE, TEAM_COLORS, SPRITES, UI } from '../sprites.js?v=84e3b46d';
 
 const TEAM_RE = /[HhSs]/;
 const cache = new Map();
@@ -22,12 +22,14 @@ function usesTeam(name) {
   return teamAware.get(name);
 }
 
-function bake(name, team) {
+// locked (DESIGN.md §10): every opaque pixel except the `k` outline becomes UI.achLocked.
+function bake(name, team, locked = false) {
   const s = SPRITES[name];
   if (!s) throw new Error(`[sprites] missing sprite "${name}"`);
   const pal = { ...PALETTE, ...(TEAM_COLORS[team] || TEAM_COLORS.green) };
   const rgb = {};
-  for (const [ch, hex] of Object.entries(pal)) rgb[ch] = hex ? hexToRgb(hex) : null;
+  const lockedRgb = hexToRgb(UI.achLocked || '#5d6f9e');
+  for (const [ch, hex] of Object.entries(pal)) rgb[ch] = !hex ? null : locked && ch !== 'k' ? lockedRgb : hexToRgb(hex);
   return s.frames.map((rows, fi) => {
     if (rows.length !== s.h) throw new Error(`[sprites] ${name} f${fi}: ${rows.length} rows, expected ${s.h}`);
     const c = makeCanvas(s.w, s.h);
@@ -52,11 +54,11 @@ function bake(name, team) {
 }
 
 // Returns the baked frame canvases for a sprite (team ignored for team-independent sprites).
-export function frames(name, team = 'green') {
-  const key = usesTeam(name) ? `${name}|${team}` : name;
+export function frames(name, team = 'green', locked = false) {
+  const key = `${usesTeam(name) ? `${name}|${team}` : name}${locked ? '|locked' : ''}`;
   let f = cache.get(key);
   if (!f) {
-    f = bake(name, team);
+    f = bake(name, team, locked);
     cache.set(key, f);
   }
   return f;
@@ -91,16 +93,33 @@ export function preloadAll() {
 
 // PNG data URL of a sprite frame scaled by an integer factor (for DOM icons / favicon).
 const urlCache = new Map();
-export function spriteDataUrl(name, team = 'green', scale = 1, frame = 0) {
-  const key = `${name}|${team}|${scale}|${frame}`;
+export function spriteDataUrl(name, team = 'green', scale = 1, frame = 0, locked = false) {
+  const key = `${name}|${team}|${scale}|${frame}|${locked}`;
   if (urlCache.has(key)) return urlCache.get(key);
   const s = SPRITES[name];
   const c = makeCanvas(s.w * scale, s.h * scale);
   const g = c.getContext('2d');
   g.imageSmoothingEnabled = false;
-  g.drawImage(frames(name, team)[frame], 0, 0, s.w * scale, s.h * scale);
+  g.drawImage(frames(name, team, locked)[frame], 0, 0, s.w * scale, s.h * scale);
   const url = c.toDataURL('image/png');
   urlCache.set(key, url);
+  return url;
+}
+
+// Several sprites layered in one w×h box (e.g. the hot5 icon: ball_big + ach_flame).
+// parts: [{ name, team, x, y }] with (x, y) = top-left in box pixels.
+export function compositeDataUrl(key, parts, w, h, scale = 1, locked = false) {
+  const ck = `composite|${key}|${scale}|${locked}`;
+  if (urlCache.has(ck)) return urlCache.get(ck);
+  const c = makeCanvas(w * scale, h * scale);
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  for (const part of parts) {
+    const s = SPRITES[part.name];
+    g.drawImage(frames(part.name, part.team || 'green', locked)[0], part.x * scale, part.y * scale, s.w * scale, s.h * scale);
+  }
+  const url = c.toDataURL('image/png');
+  urlCache.set(ck, url);
   return url;
 }
 

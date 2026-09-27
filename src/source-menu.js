@@ -1,8 +1,8 @@
 // Data-source menu: a pixel popover (wide layout) or bottom sheet (phone) opened from the
 // source badge, with a radiogroup of AGG / Binance / Bybit / Coinbase and a small settings
 // section (sound, language). The same radio rows are reused for the side-panel venue list.
-import { t, formatPriceUsd } from './i18n.js';
-import { SOURCES } from './market/market.js';
+import { t, formatPriceUsd } from './i18n.js?v=84e3b46d';
+import { SOURCES } from './market/market.js?v=84e3b46d';
 
 const NAMES = { BINANCE: 'Binance', BYBIT: 'Bybit', COINBASE: 'Coinbase' };
 

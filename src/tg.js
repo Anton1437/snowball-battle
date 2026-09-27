@@ -48,6 +48,44 @@ export function hapticSelection() {
   try { webApp.HapticFeedback.selectionChanged(); } catch { /* ignore */ }
 }
 
+// Bot API 8.0+: whether the Mini App is active (not minimised). Always true elsewhere.
+export function isAppActive() {
+  if (!supports('8.0')) return true;
+  return webApp.isActive !== false;
+}
+
+export function onAppActiveChange(fn) {
+  if (!supports('8.0')) return;
+  try {
+    webApp.onEvent('activated', () => fn(true));
+    webApp.onEvent('deactivated', () => fn(false));
+  } catch { /* ignore */ }
+}
+
+// Telegram BackButton (6.1+): show while a sheet is open; handler closes it.
+export function backButton(show, onClick) {
+  if (!supports('6.1')) return;
+  try {
+    const bb = webApp.BackButton;
+    if (show) {
+      bb.onClick(onClick);
+      bb.show();
+    } else {
+      bb.offClick(onClick);
+      bb.hide();
+    }
+  } catch { /* ignore */ }
+}
+
+// CloudStorage (Bot API 6.9+) or null.
+export function cloudStorage() {
+  return supports('6.9') ? webApp.CloudStorage : null;
+}
+
+export function telegramUser() {
+  return webApp?.initDataUnsafe?.user ?? null;
+}
+
 export function telegramLanguage() {
   return webApp?.initDataUnsafe?.user?.language_code ?? null;
 }

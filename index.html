@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#10142a">
+  <meta http-equiv="Cache-Control" content="no-cache">
   <title>Snowball Battle — live BTC</title>
   <meta name="description" content="Live Bitcoin price as a pixel-art snowball fight: green-hat buyers vs red-hat sellers. Big trades summon giant snowmen.">
   <meta property="og:type" content="website">
@@ -16,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Tiny5&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=84e3b46d">
 </head>
 <body>
   <div id="app" class="app">
@@ -33,6 +34,9 @@
           <div id="controls" class="hud-right">
             <button id="source" class="src-badge" type="button" data-state="connecting" aria-haspopup="dialog" aria-expanded="false"><span class="dot" aria-hidden="true"></span><span id="source-text"></span><span class="caret" aria-hidden="true"></span></button>
             <div class="toggles">
+              <button id="btn-profile" class="btn btn-icon btn-profile" type="button" aria-haspopup="dialog" hidden>
+                <img id="btn-profile-icon" class="px-icon" alt=""><span id="btn-profile-level" class="lvl-badge"></span>
+              </button>
               <button id="btn-sound" class="btn btn-icon" type="button" aria-pressed="false">
                 <svg class="ico-sound" viewBox="0 0 10 8" width="20" height="16" aria-hidden="true" shape-rendering="crispEdges">
                   <path fill="currentColor" d="M0 3h2v2H0zM2 2h1v4H2zM3 1h1v6H3zM4 0h1v8H4z"/>
@@ -51,6 +55,21 @@
 
       <div id="banner" class="banner" hidden aria-live="assertive">
         <div class="band"><div id="banner-title" class="banner-title"></div><div id="banner-sub" class="banner-sub"></div></div>
+      </div>
+
+      <div id="side-prompt" class="panel side-prompt" hidden role="dialog" aria-labelledby="side-prompt-title">
+        <div id="side-prompt-title" class="side-prompt-title" data-i18n="prof.sidePick"></div>
+        <div class="side-prompt-actions">
+          <button class="gbtn g" type="button" data-side="g"><i class="tri up" aria-hidden="true"></i><span data-i18n="guess.green"></span></button>
+          <button class="gbtn r" type="button" data-side="r"><i class="tri down" aria-hidden="true"></i><span data-i18n="guess.red"></span></button>
+          <button class="gbtn later" type="button" data-side="later" data-i18n="prof.sideLater"></button>
+        </div>
+      </div>
+
+      <div id="ach-toast" class="panel ach-toast" hidden role="status" aria-live="polite">
+        <img id="ach-toast-icon" class="px-icon" alt="">
+        <div class="ach-toast-text"><div class="ach-toast-kicker" data-i18n="toast.ach"></div><div id="ach-toast-name" class="ach-toast-name"></div></div>
+        <div id="ach-toast-xp" class="ach-toast-xp"></div>
       </div>
 
       <div id="loading" class="loading">
@@ -76,6 +95,15 @@
     </section>
     <section id="score-panel" class="panel score" role="img">
       <span id="score-icon-green"></span><span id="score-green" class="g">0</span><span class="sep">:</span><span id="score-red" class="r">0</span><span id="score-icon-red"></span>
+    </section>
+    <section id="profile-panel" class="panel profile-panel" hidden></section>
+    <section id="guess-panel" class="panel guess" hidden>
+      <span id="guess-label" class="guess-label"></span>
+      <span id="guess-actions" class="guess-actions">
+        <button class="gbtn g" type="button" data-side="g"><i class="tri up" aria-hidden="true"></i><span data-i18n="guess.green"></span></button>
+        <button class="gbtn r" type="button" data-side="r"><i class="tri down" aria-hidden="true"></i><span data-i18n="guess.red"></span></button>
+      </span>
+      <span id="guess-note" class="guess-note" data-i18n="guess.leaveNote"></span>
     </section>
     <section id="walls-panel" class="panel walls">
       <div class="ttl" data-i18n="walls.title"></div>
@@ -123,6 +151,20 @@
     </div>
   </div>
 
-  <script type="module" src="src/main.js"></script>
+  <!-- Profile / achievements sheet (bottom sheet on phone, centred modal on wide) -->
+  <div id="profile-sheet" class="menu profile-menu" hidden>
+    <div class="menu-backdrop"></div>
+    <div class="panel menu-sheet profile-sheet" role="dialog" aria-modal="true" aria-labelledby="profile-title">
+      <div class="menu-head">
+        <h2 id="profile-title" class="menu-title" data-i18n="prof.title"></h2>
+        <button id="profile-close" class="btn btn-icon" type="button" data-i18n-aria="menu.close">
+          <svg viewBox="0 0 7 7" width="14" height="14" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></svg>
+        </button>
+      </div>
+      <div id="profile-body" class="profile-body"></div>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js?v=84e3b46d"></script>
 </body>
 </html>

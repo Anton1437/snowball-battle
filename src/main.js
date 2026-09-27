@@ -4,16 +4,22 @@
 //             ?lang=ru|en · ?debug=1 readout · ?source=agg|binance|bybit|coinbase (overrides saved choice)
 //             ?feeds=binance,bybit,coinbase,liquidations  only open these sockets (fallback testing)
 //             ?delay=binance:5000  open a venue's socket late (tests late joiners in AGG)
-import { createMarket, SOURCES } from './market/market.js';
-import { createSourceMenu } from './source-menu.js';
-import { createRound } from './game/round.js';
-import { createScene, W } from './game/scene.js';
-import { createRenderer, fitCanvas } from './game/renderer.js';
-import { preloadAll } from './game/sprites-cache.js';
-import { createHud } from './hud.js';
-import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js';
-import { initTelegram, haptic, hapticSelection, notify } from './tg.js';
-import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js';
+//             ?progtest=1  allow progress tracking with test params; uses test_-prefixed storage keys
+import { createMarket, SOURCES } from './market/market.js?v=84e3b46d';
+import { createSourceMenu } from './source-menu.js?v=84e3b46d';
+import { createRound } from './game/round.js?v=84e3b46d';
+import { createScene, W } from './game/scene.js?v=84e3b46d';
+import { createRenderer, fitCanvas } from './game/renderer.js?v=84e3b46d';
+import { preloadAll } from './game/sprites-cache.js?v=84e3b46d';
+import { createHud } from './hud.js?v=84e3b46d';
+import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=84e3b46d';
+import {
+  initTelegram, haptic, hapticSelection, notify, isTelegram, cloudStorage, telegramUser, isAppActive, onAppActiveChange,
+} from './tg.js?v=84e3b46d';
+import { createStore } from './progress/store.js?v=84e3b46d';
+import { createTracker } from './progress/tracker.js?v=84e3b46d';
+import { createProfileUi } from './profile-ui.js?v=84e3b46d';
+import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=84e3b46d';
 
 // ---------- config ----------
 const params = new URLSearchParams(location.search);
@@ -21,6 +27,9 @@ const flag = (name) => params.has(name) && !['0', 'false'].includes(params.get(n
 const DEMO = flag('demo');
 const FAST = flag('fast');
 const DEBUG = flag('debug');
+const PROGTEST = flag('progtest');
+// Progress never counts on test links (V105 §0.2) unless explicitly in progress-test mode.
+const PROGRESS_ENABLED = PROGTEST || !['demo', 'fast', 'range', 'feeds'].some((k) => params.has(k));
 const FIXED_RANGE = Number(params.get('range')) > 0 ? Number(params.get('range')) : null;
 const feedsParam = params.get('feeds');
 const enabledFeeds = Object.fromEntries(['binance', 'bybit', 'coinbase', 'liquidations']
@@ -66,6 +75,56 @@ const scene = createScene({
 const renderer = createRenderer($('field'), scene);
 window.__sb = { market, round, scene, hud };
 
+// ---------- progress: achievements & profile (v1.05) ----------
+const tgUser = telegramUser();
+const store = createStore({
+  uid: tgUser?.id ?? null,
+  prefix: PROGTEST ? 'test_' : '',
+  cloud: PROGRESS_ENABLED ? cloudStorage() : null,
+});
+let appActive = isAppActive();
+let profileUi = null;
+const tracker = createTracker({
+  store,
+  round,
+  enabled: PROGRESS_ENABLED,
+  isVisibleExtra: () => appActive,
+  hooks: {
+    onUnlock: (def, xp) => profileUi?.toastUnlock(def, xp),
+    onSidePrompt: () => profileUi?.showSidePrompt(),
+    onGuessState: () => profileUi?.renderGuess(),
+  },
+});
+profileUi = createProfileUi({
+  store,
+  tracker,
+  enabled: PROGRESS_ENABLED,
+  storageLabelKey: isTelegram && cloudStorage() ? 'prof.storeTg' : 'prof.storeLocal',
+  userName: tgUser?.first_name ?? null,
+  play,
+});
+onAppActiveChange((active) => {
+  appActive = active;
+  if (!active) store.flush();
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden) store.flush(); });
+window.addEventListener('pagehide', () => store.flush());
+if (PROGRESS_ENABLED) store.loadCloud().then(() => profileUi.render());
+window.__sb.progress = {
+  get state() { return store.state; },
+  store,
+  tracker,
+  ui: profileUi,
+  reset: () => store.reset(),
+  fakeDay: (n = 1) => tracker.fakeDay(n),
+  flush: () => store.flush(),
+  // QA: patch counters (e.g. { gi: 24 }) then re-run achievement checks
+  set(patch) {
+    Object.assign(store.state, patch);
+    tracker.recheck();
+  },
+};
+
 let source = null;
 let pressure = 0;
 let fontsReady = false;
@@ -98,6 +157,7 @@ function layout() {
   // desktop panes) where top/bottom overlays would squeeze the field.
   const wide = vw >= WIDE_MIN_VW || (vw >= 560 && vw > vh * 0.95);
   hud.setLayout(wide ? 'wide' : 'phone');
+  profileUi.setLayout(wide ? 'wide' : 'phone');
   const sideW = wide ? $('side').offsetWidth + 16 : 0;
   const availW = Math.min(520, contentW - sideW - (wide ? 16 : 0));
   const availH = wide ? contentH - 16 : contentH;
@@ -108,6 +168,7 @@ function layout() {
   // The HUD is sized in CSS px; convert what it covers into logical px and keep the whole
   // field (end zones, flags, rows, giants, crown) inside the visible band between overlays.
   const ins = hud.measureInsets();
+  stageEl.style.setProperty('--top-space', `${Math.round(ins.top)}px`); // toasts/prompts sit under the HUD
   const insetTop = ins.top > 0 ? Math.ceil(ins.top / css) + 1 : 0;
   const insetBottom = ins.bottom > 0 ? Math.ceil(ins.bottom / css) + 1 : 0;
   if (!scene.state.kids.length) scene.init(H, insetTop, insetBottom);
@@ -164,6 +225,7 @@ market.on('price', ({ price, change24h }) => {
 });
 
 market.on('status', (st) => {
+  tracker.onStatus(st);
   const prev = source;
   source = st.source;
   hud.setSource(st);
@@ -205,6 +267,7 @@ market.on('trade', (tr) => {
 });
 
 market.on('bigprint', (bp) => {
+  tracker.onBigprint(bp);
   hud.pushFeed(bigprintRow(bp));
   const giant = bp.tier === 'giant';
   haptic(bp.usd >= 5_000_000 ? 'heavy' : giant ? 'medium' : 'light');
@@ -215,6 +278,7 @@ market.on('bigprint', (bp) => {
 
 // ---------- round events ----------
 function handleRoundEvents(events) {
+  if (events.length) tracker.onRoundEvents(events);
   for (const ev of events) {
     if (ev.type === 'victory') {
       scene.victory(ev.winner);
@@ -278,6 +342,7 @@ onLangChange(() => {
   hud.renderLang();
   renderControls();
   menu.render();
+  profileUi.render();
 });
 window.addEventListener('pointerdown', unlockAudio, { passive: true });
 window.addEventListener('keydown', unlockAudio);
