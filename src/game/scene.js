@@ -3,8 +3,8 @@
 //
 // Teams: 'red' = sellers, TOP, front view (trapper hat). 'green' = buyers, BOTTOM, back view (beanie).
 // Market side → team: 'buy' → green, 'sell' → red.
-import { SPRITES, TEAM_COLORS, PALETTE } from '../sprites.js?v=4055052d';
-import { createCamera } from './camera.js?v=4055052d';
+import { SPRITES, TEAM_COLORS, PALETTE } from '../sprites.js?v=6ee7c4dd';
+import { createCamera } from './camera.js?v=6ee7c4dd';
 
 export const W = 192;
 export const AXIS_X = 168;
@@ -26,6 +26,13 @@ const SMALL = { speed: 95, peakK: 0.22, peakMin: 6, peakMax: 24, hitR: 7 };
 const BIG = { speed: 70, peakK: 0.35, peakMin: 14, peakMax: 40, hitR: 22, duckR: 44 };
 const GIANT_T = { dropEnd: 0.2, windup: 1.1, release: 1.5, follow: 1.65, followEnd: 1.95, vanish: 3.2 };
 const MAX_BALLS = 48;
+const TRAIL_MAX_PER_BALL = 24;
+// per-trail particle motion (DESIGN.md §11): life s, gravity px/s², fall px/s, wobble
+const TRAIL_KIND = {
+  trail_sparks: { life: 0.25, gravity: 30, fall: 0, wobble: 0, confetti: false },
+  trail_flakes: { life: 0.4, gravity: 0, fall: 6, wobble: 4, confetti: false },
+  trail_confetti: { life: 0.3, gravity: 0, fall: 12, wobble: 0, confetti: true },
+};
 const MAX_FX = 64;
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -65,6 +72,9 @@ export function createScene({ reducedMotion = false, hooks = {} } = {}) {
     flakes: [],
     camera,
     pressure: 0,
+    myKid: null,   // the owner's kid (v1.07)
+    myTrail: null, // { kind, colors } equipped trail for the owner's throws
+    trails: pool(72, () => ({ active: false })), // 3 balls × 24
   };
 
   const acc = { green: 0, red: 0 };          // throw demand accumulators
@@ -193,6 +203,11 @@ export function createScene({ reducedMotion = false, hooks = {} } = {}) {
     b.peak = clamp(spec.peakK * dist, spec.peakMin, spec.peakMax);
     b.x = x0; b.y = y0; b.z = z0;
     b.usd = 0;
+    b.trail = null;
+    b.trailDist = 0;
+    b.trailLive = 0;
+    b.px = x0;
+    b.py = y0 - z0;
     hooks.onThrow?.(team, kind);
     return b;
   }
@@ -276,6 +291,41 @@ export function createScene({ reducedMotion = false, hooks = {} } = {}) {
     hooks.onImpact?.(b.kind, hitAny);
   }
 
+  function spawnTrail(b) {
+    const q = s.trails.find((o) => !o.active);
+    if (!q) return;
+    const tr = b.trail;
+    q.active = true;
+    q.ball = b;
+    q.kind = tr.kind;
+    q.x = b.x + rand(-1, 1);
+    q.y = b.y - b.z + rand(-1, 1);
+    q.vy = 0;
+    q.age = 0;
+    q.ph = Math.random() * 6.28;
+    q.color = tr.colors[(Math.random() * tr.colors.length) | 0];
+    q.flip = tr.kind.confetti && Math.random() < 0.5; // half the confetti flips 1×1 ↔ 2×1
+    q.wide = false;
+    b.trailLive++;
+  }
+
+  function updateTrails(dt) {
+    for (const q of s.trails) {
+      if (!q.active) continue;
+      q.age += dt;
+      const k = q.kind;
+      if (q.age >= k.life) {
+        q.active = false; // pops out, no fade
+        if (q.ball.trailLive > 0) q.ball.trailLive--;
+        continue;
+      }
+      q.vy += k.gravity * dt;
+      q.y += (q.vy + k.fall) * dt;
+      if (k.wobble) q.x += Math.sin(q.age * 12 + q.ph) * k.wobble * dt;
+      q.wide = q.flip && Math.floor(q.age / 0.1) % 2 === 1;
+    }
+  }
+
   function burst(x, y, n, c1, c2) {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -319,7 +369,8 @@ export function createScene({ reducedMotion = false, hooks = {} } = {}) {
           if (k.t >= k.dur) {
             setKid(k, 'throw', 0.2);
             const rel = RELEASE[k.view];
-            spawnBall(k.team, k.x + rel.dx, k.y, rel.z, k.big ? 'big' : 'small');
+            const ball = spawnBall(k.team, k.x + rel.dx, k.y, rel.z, k.big ? 'big' : 'small');
+            if (ball && k === s.myKid && s.myTrail) ball.trail = s.myTrail; // equipped throw trail
             k.big = false;
           }
           break;
@@ -331,6 +382,9 @@ export function createScene({ reducedMotion = false, hooks = {} } = {}) {
           break;
         case 'duck':
           if (k.t >= k.dur) setKid(k, 'idle', rand(0.4, 2));
+          break;
+        case 'cheer': // reaction cheer (victory cheers never reach here: s.winner skips the switch)
+          if (k.t >= k.dur) setKid(k, 'idle', rand(0.4, 1.2));
           break;
         default:
           break;
@@ -391,6 +445,18 @@ export function createScene({ reducedMotion = false, hooks = {} } = {}) {
       b.x = b.x0 + (b.x1 - b.x0) * t;
       b.y = b.y0 + (b.y1 - b.y0) * t;
       b.z = b.z0 * (1 - t) + 4 * b.peak * t * (1 - t);
+      if (b.trail) {
+        // owner's trail (DESIGN.md §11): one particle per 2 px of drawn travel, ≤ 24 live per ball
+        const dx = b.x - b.px;
+        const dy = b.y - b.z - b.py;
+        b.trailDist += Math.sqrt(dx * dx + dy * dy);
+        b.px = b.x;
+        b.py = b.y - b.z;
+        while (b.trailDist >= 2) {
+          b.trailDist -= 2;
+          if (b.trailLive < TRAIL_MAX_PER_BALL) spawnTrail(b);
+        }
+      }
     }
   }
 
@@ -453,6 +519,7 @@ export function createScene({ reducedMotion = false, hooks = {} } = {}) {
     updateKids(dt);
     updateGiants(dt);
     updateBalls(dt);
+    updateTrails(dt);
     updateFx(dt);
     updateConfetti(dt);
     camera.update(dt);
@@ -461,6 +528,26 @@ export function createScene({ reducedMotion = false, hooks = {} } = {}) {
   // ---------- external events ----------
   return {
     state: s,
+    // v1.07: the owner's kid = centre front-row kid of the team they back today.
+    setMyKid(team, trailId, trailColors) {
+      s.myKid = s.kids.find((k) => k.team === team && k.row === 'front' && k.x === 84) || null;
+      const kind = TRAIL_KIND[trailId];
+      s.myTrail = kind && trailColors?.length ? { kind, colors: trailColors } : null;
+    },
+    // ✓ → cheer with a gold sparkle, ✗ → hit (then the usual duck)
+    reactMyKid(win) {
+      const k = s.myKid;
+      if (!k || s.winner) return;
+      if (win) {
+        setKid(k, 'cheer', 1.4);
+        for (let i = 0; i < (reducedMotion ? 4 : 12); i++) {
+          const a = Math.random() * Math.PI * 2;
+          spawnParticle(k.x + Math.cos(a) * 4, k.y - 12 + Math.sin(a) * 3, Math.cos(a) * rand(10, 22), -rand(15, 35), rand(0.5, 0.9), i % 2 ? PALETTE.Y : PALETTE.y);
+        }
+      } else {
+        setKid(k, 'hit', rand(0.25, 0.3));
+      }
+    },
     resize,
     update,
     rowY, fortY, giantY,

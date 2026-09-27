@@ -2,11 +2,12 @@
 // sheet (bottom sheet on phone, centred modal on wide), wide side-panel sections, the
 // round-guess / time-forecast bar, the "backing today" prompt and a shared toast queue.
 // Styling per design/DESIGN.md §8 and §10; readable text uses the --font-read token.
-import { t, getLang, formatPrice } from './i18n.js?v=4055052d';
-import { spriteDataUrl, compositeDataUrl } from './game/sprites-cache.js?v=4055052d';
-import { ACHIEVEMENTS, RARITY_XP, levelOf } from './progress/achievements.js?v=4055052d';
-import { HORIZONS } from './progress/forecast.js?v=4055052d';
-import { backButton, hapticSelection, notify } from './tg.js?v=4055052d';
+import { t, getLang, formatPrice } from './i18n.js?v=6ee7c4dd';
+import { spriteDataUrl, compositeDataUrl } from './game/sprites-cache.js?v=6ee7c4dd';
+import { ACHIEVEMENTS, RARITY_XP, levelOf } from './progress/achievements.js?v=6ee7c4dd';
+import { HORIZONS } from './progress/forecast.js?v=6ee7c4dd';
+import { backButton, hapticSelection, notify } from './tg.js?v=6ee7c4dd';
+import { createKidCard, createWardrobe, itemPreviewUrl } from './wardrobe-ui.js?v=6ee7c4dd';
 
 const TOAST_HOLD_MS = 2500;
 const TOAST_POP = [{ transform: 'scale(0.2)' }, { transform: 'scale(1)' }];
@@ -39,7 +40,7 @@ function fmtCountdown(ms) {
   return t('fc.hm', { h, m: String(m).padStart(2, '0') });
 }
 
-export function createProfileUi({ store, tracker, forecasts, enabled, storageLabelKey, userName, play }) {
+export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled, storageLabelKey, userName, play }) {
   const el = {
     btn: $('btn-profile'),
     btnIcon: $('btn-profile-icon'),
@@ -94,7 +95,9 @@ export function createProfileUi({ store, tracker, forecasts, enabled, storageLab
       : side === 'r' ? spriteDataUrl('icon_head_front', 'red', 2) : spriteDataUrl('ball_big', 'green', 2);
     const { level } = levelOf(p().xp);
     el.btnLevel.textContent = level;
-    el.btn.setAttribute('aria-label', `${t('prof.open')}: ${t('prof.level', { n: level })}`);
+    const dot = cosmetics.hasUnseen();
+    el.btn.classList.toggle('has-new', dot);
+    el.btn.setAttribute('aria-label', `${t('prof.open')}: ${t('prof.level', { n: level })}${dot ? ` · ${t('wr.newDot')}` : ''}`);
     el.btn.title = t('prof.open');
   }
 
@@ -106,33 +109,24 @@ export function createProfileUi({ store, tracker, forecasts, enabled, storageLab
     return { h: Math.floor(mins / 60), m: mins % 60, at: new Date(next).toLocaleTimeString(getLang(), { hour: '2-digit', minute: '2-digit' }) };
   }
 
-  // ---------- shared fragments ----------
-  function headerHtml() {
-    const q = p();
-    const lv = levelOf(q.xp);
-    const side = tracker.sideState();
-    const sideTxt = side.picked === 'g' ? t('prof.backGreen') : side.picked === 'r' ? t('prof.backRed') : t('prof.sideNone');
-    const until = untilNextDay();
-    return `
-      <div class="prof-head">
-        <div class="prof-name">${esc(name())}</div>
-        <div class="prof-level">${t('prof.level', { n: lv.level })}</div>
-      </div>
-      <div class="xpbar" role="img" aria-label="${t('prof.xp', { a: lv.into, b: lv.need })}"><i style="width:${Math.round((lv.into / lv.need) * 100)}%"></i></div>
-      <div class="prof-row"><span class="xp-txt num">${t('prof.xp', { a: lv.into, b: lv.need })}</span>
-        <span class="streak"><img class="px-icon" src="${spriteDataUrl('ach_icicle', 'green', 2)}" alt="">${t('prof.streak', { n: q.st[0] })}</span></div>
-      <div class="prof-row side-row"><span>${t('prof.side')}: <b class="side-${side.picked || 'none'}">${sideTxt}</b>${side.picked
-        ? ` · ${t('prof.sideNext', { h: until.h, m: until.m })}` : ''}</span></div>
-      <div class="prof-note">${t('prof.sideNote')}</div>`;
-  }
-
-  // Only when nothing is picked today: the profile shows the side as info, not a control.
-  function sidePickHtml() {
-    if (tracker.sideState().picked) return '';
-    return `<div class="side-pick"><span class="side-pick-label">${t('prof.sidePick')}</span>
-      <button class="gbtn g" type="button" data-pick="g"><i class="tri up" aria-hidden="true"></i>${t('side.green')}</button>
-      <button class="gbtn r" type="button" data-pick="r"><i class="tri down" aria-hidden="true"></i>${t('side.red')}</button></div>`;
-  }
+  // ---------- kid card + wardrobe: built once, updated in place (sheet and wide panel) ----------
+  const onPickSide = (side) => {
+    if (tracker.pickSide(side)) {
+      hapticSelection();
+      cosmetics.refresh();
+      render();
+    }
+  };
+  const sheetCard = createKidCard({ store, tracker, cosmetics, userName, onPickSide });
+  const sheetWardrobe = createWardrobe({ store, cosmetics, onEquip: () => hapticSelection() });
+  const sheetRest = document.createElement('div');
+  sheetRest.className = 'prof-rest';
+  el.body.replaceChildren(sheetCard.el, sheetWardrobe.el, sheetRest);
+  const panelCard = createKidCard({ store, tracker, cosmetics, userName, onPickSide });
+  const panelWardrobe = createWardrobe({ store, cosmetics, onEquip: () => hapticSelection() });
+  const panelRest = document.createElement('div');
+  panelRest.className = 'prof-rest';
+  el.panel.replaceChildren(panelCard.el, panelWardrobe.el, panelRest);
 
   function statsHtml() {
     const q = p();
@@ -140,7 +134,7 @@ export function createProfileUi({ store, tracker, forecasts, enabled, storageLab
     const fcMade = q.fh.reduce((s, r) => s + r[0], 0);
     const fcWon = q.fh.reduce((s, r) => s + r[1], 0);
     const cell = (k, v) => `<div class="stat"><div class="stat-v num">${v}</div><div class="stat-k">${t(k)}</div></div>`;
-    return `<div class="stats">${cell('prof.statWatch', Math.floor(q.w / 60))}${cell('prof.statRounds', q.rw)}
+    return `<div class="stats">${cell('prof.statWatch', `<span data-stat="watch">${Math.floor(q.w / 60)}</span>`)}${cell('prof.statRounds', q.rw)}
       ${cell('prof.statGuess', `${q.g[1]}/${q.g[0]} · ${pct}%`)}${cell('prof.statBest', q.g[3])}
       ${cell('prof.statFc', `${fcWon}/${fcMade}`)}${cell('prof.statGiants', q.gi)}</div>`;
   }
@@ -195,11 +189,13 @@ export function createProfileUi({ store, tracker, forecasts, enabled, storageLab
   // ---------- sheet ----------
   function renderSheet() {
     const unlocked = Object.keys(p().a).length;
-    el.body.innerHTML = `${headerHtml()}${sidePickHtml()}${statsHtml()}
+    sheetRest.innerHTML = `${statsHtml()}
       <h3 class="menu-sub" id="prof-fc">${t('fc.title')}</h3>
       <div class="fc-list read">${fcRowsHtml(forecasts.list())}</div>${fcStatsHtml()}
       <h3 class="menu-sub">${t('prof.achTitle', { n: unlocked, total: achTotal })}</h3>
       <div class="ach-grid">${ACHIEVEMENTS.map(achCellHtml).join('')}</div>${detailHtml()}${resetHtml()}`;
+    sheetCard.update(untilNextDay());
+    sheetWardrobe.update();
   }
 
   function onBodyClick(e) {
@@ -207,18 +203,13 @@ export function createProfileUi({ store, tracker, forecasts, enabled, storageLab
     if (cell) {
       selectedAch = selectedAch === cell.dataset.ach ? null : cell.dataset.ach;
       render();
-      return;
-    }
-    const pick = e.target.closest('[data-pick]');
-    if (pick && tracker.pickSide(pick.dataset.pick)) {
-      hapticSelection();
-      render();
     }
   }
   el.body.addEventListener('click', onBodyClick);
 
   function open(section) {
     renderSheet();
+    cosmetics.markViewed(); // clears the "new item" dot
     el.sheetRoot.classList.toggle('sheet', mode === 'phone');
     el.sheetRoot.hidden = false;
     backButton(true, close);
@@ -247,9 +238,11 @@ export function createProfileUi({ store, tracker, forecasts, enabled, storageLab
     if (mode !== 'wide') return;
     const recent = ACHIEVEMENTS.filter((a) => p().a[a.id] != null)
       .sort((a, b) => p().a[b.id] - p().a[a.id]).slice(0, 5);
-    el.panel.innerHTML = `${headerHtml()}${sidePickHtml()}
-      <div class="recent">${recent.map((d) => `<img class="px-icon" src="${achIconUrl(d)}" alt="${esc(t(`ach.${d.id}.name`))}" title="${esc(t(`ach.${d.id}.name`))}">`).join('')}</div>
+    panelRest.innerHTML = `<div class="recent">${recent.map((d) => `<img class="px-icon" src="${achIconUrl(d)}" alt="${esc(t(`ach.${d.id}.name`))}" title="${esc(t(`ach.${d.id}.name`))}">`).join('')}</div>
       <button class="btn all-ach" type="button" data-open-profile>${t('prof.allAch')} · ${Object.keys(p().a).length}/${achTotal}</button>`;
+    panelCard.update(untilNextDay());
+    panelWardrobe.update();
+    cosmetics.markViewed(); // the wardrobe is on screen in the side panel
   }
   el.panel.addEventListener('click', (e) => {
     if (e.target.closest('[data-open-profile]')) open();
@@ -403,7 +396,10 @@ export function createProfileUi({ store, tracker, forecasts, enabled, storageLab
   el.sidePrompt.addEventListener('click', (e) => {
     const b = e.target.closest('[data-side]');
     if (!b) return;
-    if (b.dataset.side !== 'later' && tracker.pickSide(b.dataset.side)) hapticSelection();
+    if (b.dataset.side !== 'later' && tracker.pickSide(b.dataset.side)) {
+      hapticSelection();
+      cosmetics.refresh(); // my kid moves to the backed team
+    }
     el.sidePrompt.hidden = true;
     render();
   });
@@ -435,6 +431,12 @@ export function createProfileUi({ store, tracker, forecasts, enabled, storageLab
 
   function toastUnlock(def, xp) {
     toastQueue.push({ kind: 'ach', icon: achIconUrl(def), kicker: t('toast.ach'), name: t(`ach.${def.id}.name`), xp });
+    pumpToasts();
+  }
+
+  function toastItem(item) {
+    const thumb = item.slot === 'trail' || item.slot === 'frame' ? spriteDataUrl('crown', 'green', 2) : itemPreviewUrl(item, cosmetics.myTeam(), false);
+    toastQueue.push({ kind: 'item', icon: thumb, kicker: t('wr.kicker'), name: t(`item.${item.id}`), xp: 0 }); // kicker «НОВЫЙ ПРЕДМЕТ» + item name
     pumpToasts();
   }
 
@@ -472,17 +474,25 @@ export function createProfileUi({ store, tracker, forecasts, enabled, storageLab
   let lastSig = '';
   const viewSig = () => {
     const q = p();
-    return JSON.stringify([Math.floor(q.w / 60), q.rw, q.gi, q.wh, q.g, q.st, q.xp, q.sd, q.a, q.fh, q.f.length, selectedAch, getLang(), mode]);
+    // no watch-time / XP here: those tick every minute and are updated in place below, so
+    // interactive cells (achievements) aren't rebuilt on a timer
+    return JSON.stringify([q.rw, q.gi, q.wh, q.g, q.st, q.sd, q.a, q.fh, q.f.length, selectedAch, getLang(), mode]);
   };
 
   function render(force = true) {
     clearTimeout(renderTimer);
     renderTimer = 0;
     renderGuess();
+    cosmetics.refresh();
+    renderButton();
+    // in-place updates (cheap, no DOM rebuild)
+    if (isOpen()) sheetCard.update(untilNextDay());
+    if (mode === 'wide') panelCard.update(untilNextDay());
+    const mins = String(Math.floor(p().w / 60));
+    for (const n of document.querySelectorAll('[data-stat="watch"]')) if (n.textContent !== mins) n.textContent = mins;
     const sig = viewSig();
     if (!force && sig === lastSig) return;
     lastSig = sig;
-    renderButton();
     renderPanel();
     if (isOpen()) renderSheet();
   }
@@ -499,7 +509,7 @@ export function createProfileUi({ store, tracker, forecasts, enabled, storageLab
   }
 
   return {
-    setLayout, render, toastUnlock, toastForecast, showSidePrompt, renderGuess, open, close,
+    setLayout, render, toastUnlock, toastForecast, toastItem, showSidePrompt, renderGuess, open, close,
     get isOpen() { return isOpen(); },
   };
 }

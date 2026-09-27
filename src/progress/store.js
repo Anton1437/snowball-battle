@@ -23,6 +23,9 @@ const emptyFh = () => Array.from({ length: HORIZON_COUNT }, () => [0, 0, 0, 0, 0
 //   fd: [utcDay, bitmask of horizons won that day]   (Full Spectrum)
 //   xd: [watch, guess, round, forecastShort(1м–15м), forecastLong(1ч–24ч)] daily XP
 //   tu: 1 once the tutorial was seen
+// v1.07 (optional fields, still v2 — defaults fill them in):
+//   eq:   equipped cosmetics { h, s, m, t, f } → item id (absent = none)
+//   seen: [notifiedMask, wardrobeViewedMask] over the append-only cosmetics catalog
 export function defaultProfile(day, uid = null) {
   return {
     v: SCHEMA_VERSION, rev: 0, uid, d0: day, day,
@@ -38,6 +41,8 @@ export function defaultProfile(day, uid = null) {
     fh: emptyFh(),
     fd: [day, 0],
     tu: 0,
+    eq: {},
+    seen: null, // null until first initialised (so upgrading users don't get a toast storm)
   };
 }
 
@@ -59,6 +64,8 @@ function migrate(data, day, uid) {
       out.f = Array.isArray(d.f) ? d.f.slice(0, HORIZON_COUNT) : [];
       out.fh = Array.isArray(d.fh) && d.fh.length === HORIZON_COUNT ? d.fh : emptyFh();
       out.fd = Array.isArray(d.fd) ? d.fd : base.fd;
+      out.eq = d.eq && typeof d.eq === 'object' ? d.eq : {};
+      out.seen = Array.isArray(d.seen) && d.seen.length === 2 ? d.seen : null;
       return out;
     }
     default:
@@ -86,6 +93,12 @@ export function merge(local, cloud) {
   // per-horizon made/won/best/void by max
   out.fh = (newer.fh || emptyFh()).map((row, h) => row.map((v, i) => (i === 2 ? v : maxOf(local.fh?.[h]?.[i], cloud.fh?.[h]?.[i]))));
   out.tu = maxOf(local.tu, cloud.tu);
+  out.eq = { ...(newer.eq || {}) }; // equipment from the newer copy
+  if (local.seen || cloud.seen) {   // seen flags: union
+    const a = local.seen || [0, 0];
+    const b = cloud.seen || [0, 0];
+    out.seen = [a[0] | b[0], a[1] | b[1]];
+  }
   out.d0 = Math.min(local.d0 ?? Infinity, cloud.d0 ?? Infinity);
   out.rev = maxOf(local.rev, cloud.rev);
   return out;

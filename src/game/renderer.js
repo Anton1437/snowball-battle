@@ -1,9 +1,10 @@
 // Canvas renderer for the scene at logical resolution 192 × H (DESIGN.md §4–§6, §9).
 // Layers: ground → front line → y-sorted actors/props → balls → FX  (all shaken)
 //         → price axis → snowflakes (not shaken). The DOM HUD sits on top.
-import { SPRITES, PALETTE, UI, drawSprite, frames, loopFrame, makeCanvas, miniText, miniTextWidth } from './sprites-cache.js?v=4055052d';
-import { W, AXIS_X, FIELD_W } from './scene.js?v=4055052d';
-import { axisLevels, signLabel } from './round.js?v=4055052d';
+import { SPRITES, PALETTE, UI, drawSprite, frames, loopFrame, makeCanvas, miniText, miniTextWidth } from './sprites-cache.js?v=6ee7c4dd';
+import { W, AXIS_X, FIELD_W } from './scene.js?v=6ee7c4dd';
+import { axisLevels, signLabel } from './round.js?v=6ee7c4dd';
+import { drawKidLook, drawYouMarker } from './kid-art.js?v=6ee7c4dd';
 
 const H_MIN = 256;
 const H_MAX = 420;
@@ -200,7 +201,7 @@ export function createRenderer(canvas, scene) {
     for (const k of s.kids) {
       const y = Math.round(k.y);
       const bob = k.moving && k.state === 'idle' ? Math.floor(t * 8 + k.phase * 8) % 2 : 0;
-      add(y, 'kid', KID_NAMES[k.view][k.state], k.team, kidFrame(k, t), k.x, y - bob);
+      add(y, 'kid', KID_NAMES[k.view][k.state], k.team, kidFrame(k, t), k.x, y - bob, k);
     }
     for (const g of s.giants) {
       const tf = giantThrowFrame(g);
@@ -235,7 +236,13 @@ export function createRenderer(canvas, scene) {
           break;
         case 'kid':
           drawSprite(ctx, 'shadow_kid', d.x, d.key);
-          drawSprite(ctx, d.name, d.x, d.y, d.team, d.frame);
+          if (d.ref === s.myKid && myLook) {
+            // the owner's kid: equipped cosmetics + gold marker (bob in sync with the kid)
+            drawKidLook(ctx, d.name, d.team, d.frame, d.x, d.y, myLook);
+            drawYouMarker(ctx, d.name, d.frame, d.x, d.y, myLook, Math.floor(s.time * 3) % 2);
+          } else {
+            drawSprite(ctx, d.name, d.x, d.y, d.team, d.frame);
+          }
           break;
         case 'giant':
           drawSprite(ctx, 'shadow_giant', d.x, d.key);
@@ -248,6 +255,15 @@ export function createRenderer(canvas, scene) {
   }
 
   // ---------- projectiles, FX ----------
+  // Owner's snowball trail: FX layer, beneath the balls (1×1, confetti flips to 2×1).
+  function drawTrails() {
+    for (const q of s.trails) {
+      if (!q.active) continue;
+      ctx.fillStyle = q.color;
+      ctx.fillRect(Math.round(q.x), Math.round(q.y), q.wide ? 2 : 1, 1);
+    }
+  }
+
   function drawBalls() {
     for (const b of s.balls) {
       if (!b.active) continue;
@@ -310,6 +326,7 @@ export function createRenderer(canvas, scene) {
   const FC_LABELS = ['1m', '5m', '15m', '1h', '4h', '24h'];
   const FC_COLORS = { u: '#a6e85c', d: '#d63a4f' };
   let getForecasts = null;
+  let myLook = null; // cosmetics look for the owner's kid (null = feature off)
   function drawForecastLines(round) {
     const list = getForecasts?.();
     const r = round.state;
@@ -348,6 +365,7 @@ export function createRenderer(canvas, scene) {
     ctx.drawImage(trenchCache, 0, Math.round(s.F) - TRENCH_ORIGIN);
     collect(t);
     drawDrawables();
+    drawTrails();
     drawBalls();
     drawFx();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -361,5 +379,6 @@ export function createRenderer(canvas, scene) {
     draw,
     // fn() → array of active forecasts [h, dir, entryPrice, ...] (read each frame, no copies)
     setForecastSource(fn) { getForecasts = fn; },
+    setMyLook(look) { myLook = look; },
   };
 }

@@ -448,7 +448,7 @@ export const SPRITES = {
       '..............',
       '.......kk.....',
       '......kwwk....',
-      '....kHHbbk....',
+      '....kHbbHk....',
       '...kHHHHHHk...',
       '.kyHHhHHhHHyk.',
       '.kyhhhhhhhhyk.',
@@ -1553,6 +1553,101 @@ export const SPRITES = {
       '.....k....',
     ],
   ] },
+  cos_pin_star: { w: 3, h: 3, anchor: [1, 1], note: "hat badge; draw at HAT_POINTS[..][f].pin", frames: [
+    [
+      '.y.',
+      'yYy',
+      'y.y',
+    ],
+  ] },
+  cos_pin_whale: { w: 4, h: 3, anchor: [2, 1], note: "hat badge (4 wide: centred on the head); draw at pin", frames: [
+    [
+      'w..j',
+      'jjjj',
+      '.JJ.',
+    ],
+  ] },
+  cos_pin_cockade: { w: 3, h: 3, anchor: [1, 1], note: "hat badge; draw at pin", frames: [
+    [
+      '.y.',
+      'yjy',
+      '.y.',
+    ],
+  ] },
+  cos_crown_top: { w: 8, h: 4, anchor: [4, 3], note: "crown on top of hat/pompom; anchor = bottom centre, draw at HAT_POINTS[..][f].top", frames: [
+    [
+      'y..yy..y',
+      'yy.yy.yy',
+      'yYyYYyYy',
+      'kkkkkkkk',
+    ],
+  ] },
+  cos_snow_front: { w: 8, h: 5, anchor: [4, 1], note: "white dots on the trapper H (front view); draw at pin", frames: [
+    [
+      '..w.....',
+      '......w.',
+      '........',
+      'w.......',
+      '.......w',
+    ],
+  ] },
+  cos_snow_back: { w: 7, h: 3, anchor: [3, 2], note: "white dots on the beanie H (back view); draw at pin", frames: [
+    [
+      '....w..',
+      'w......',
+      '......w',
+    ],
+  ] },
+  marker_you: { w: 5, h: 4, anchor: [2, 3], note: "owner marker; draw at (top.x, top.y - 2), or above the crown (top.y - 5) when a crown is worn", frames: [
+    [
+      'kkkkk',
+      'kYYyk',
+      '.kyk.',
+      '..k..',
+    ],
+  ] },
+};
+
+// v1.07 wardrobe (DESIGN.md §11). One entry per frame: pin = hat badge point, top = bottom-centre for cos_crown_top.
+export const HAT_POINTS = {
+  kid_front_idle: [{pin: [7, 2], top: [7, 0]}, {pin: [7, 3], top: [7, 1]}],
+  kid_front_windup: [{pin: [7, 2], top: [7, 0]}],
+  kid_front_throw: [{pin: [7, 3], top: [7, 1]}, {pin: [7, 3], top: [7, 1]}],
+  kid_front_hit: [{pin: [7, 3], top: [7, 1]}, {pin: [8, 2], top: [8, 0]}],
+  kid_front_cheer: [{pin: [7, 3], top: [7, 1]}, {pin: [7, 2], top: [7, 0]}],
+  kid_front_duck: [{pin: [7, 8], top: [7, 6]}, {pin: [7, 8], top: [7, 6]}],
+  kid_back_idle: [{pin: [7, 4], top: [7, 0]}, {pin: [7, 5], top: [7, 1]}],
+  kid_back_windup: [{pin: [7, 4], top: [7, 0]}],
+  kid_back_throw: [{pin: [7, 4], top: [7, 0]}, {pin: [7, 5], top: [7, 1]}],
+  kid_back_hit: [{pin: [7, 4], top: [7, 0]}, {pin: [7, 5], top: [7, 1]}],
+  kid_back_cheer: [{pin: [7, 5], top: [7, 1]}, {pin: [7, 4], top: [7, 0]}],
+  kid_back_duck: [{pin: [7, 10], top: [7, 6]}, {pin: [7, 10], top: [7, 6]}],
+};
+
+// Owner's kid only: merged over {...PALETTE, ...TEAM_COLORS[team]} when baking kid_* sprites. Mittens use char(s):
+export const MITTEN_CHARS = ["y"];
+export const COSMETIC_SWAPS = {
+  hat_trim_gold: {"h": "#f5b83d"},
+  scarf_frost: {"s": "#bfd2ea"},
+  scarf_gold: {"s": "#f5b83d"},
+  scarf_night: {"s": "#3b4468"},
+  mitt_white: {"y": "#ffffff"},
+  mitt_pink: {"y": "#ee8f8f"},
+  mitt_blue: {"y": "#7fb8ff"},
+};
+
+// Snowball trail particle colours (owner only), see DESIGN.md §11.
+export const TRAILS = {
+  trail_sparks: ["#ffe27a", "#f5b83d", "#f07c34"],
+  trail_flakes: ["#ffffff", "#bfd2ea", "#8fa7cf"],
+  trail_confetti: ["#ffe27a", "#ee8f8f", "#7fb8ff", "#f07c34"],
+};
+
+// Profile frame rings: [main, shade, highlight]; frame_aurora = 3 colours cycled around the ring.
+export const FRAMES = {
+  frame_silver: ["#bfd2ea", "#8fa7cf", "#ffffff"],
+  frame_gold: ["#f5b83d", "#8c5a35", "#ffe27a"],
+  frame_aurora: ["#7fb8ff", "#a6e85c", "#ee8f8f"],
 };
 
 export const UI = {

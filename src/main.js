@@ -5,23 +5,26 @@
 //             ?feeds=binance,bybit,coinbase,liquidations  only open these sockets (fallback testing)
 //             ?delay=binance:5000  open a venue's socket late (tests late joiners in AGG)
 //             ?progtest=1  allow progress tracking with test params; uses test_-prefixed storage keys
-import { createMarket, SOURCES } from './market/market.js?v=4055052d';
-import { createSourceMenu } from './source-menu.js?v=4055052d';
-import { createRound } from './game/round.js?v=4055052d';
-import { createScene, W } from './game/scene.js?v=4055052d';
-import { createRenderer, fitCanvas } from './game/renderer.js?v=4055052d';
-import { preloadAll } from './game/sprites-cache.js?v=4055052d';
-import { createHud } from './hud.js?v=4055052d';
-import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=4055052d';
+import { createMarket, SOURCES } from './market/market.js?v=6ee7c4dd';
+import { createSourceMenu } from './source-menu.js?v=6ee7c4dd';
+import { createRound } from './game/round.js?v=6ee7c4dd';
+import { createScene, W } from './game/scene.js?v=6ee7c4dd';
+import { createRenderer, fitCanvas } from './game/renderer.js?v=6ee7c4dd';
+import { preloadAll } from './game/sprites-cache.js?v=6ee7c4dd';
+import { createHud } from './hud.js?v=6ee7c4dd';
+import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=6ee7c4dd';
 import {
   initTelegram, haptic, hapticSelection, notify, isTelegram, cloudStorage, telegramUser, isAppActive, onAppActiveChange,
-} from './tg.js?v=4055052d';
-import { createStore } from './progress/store.js?v=4055052d';
-import { createTracker } from './progress/tracker.js?v=4055052d';
-import { createProfileUi } from './profile-ui.js?v=4055052d';
-import { createForecasts } from './progress/forecast.js?v=4055052d';
-import { createTutorial } from './tutorial.js?v=4055052d';
-import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=4055052d';
+} from './tg.js?v=6ee7c4dd';
+import { createStore } from './progress/store.js?v=6ee7c4dd';
+import { createTracker } from './progress/tracker.js?v=6ee7c4dd';
+import { createProfileUi } from './profile-ui.js?v=6ee7c4dd';
+import { createForecasts } from './progress/forecast.js?v=6ee7c4dd';
+import { createTutorial } from './tutorial.js?v=6ee7c4dd';
+import { createCosmetics } from './wardrobe-ui.js?v=6ee7c4dd';
+import { markerTopY } from './game/kid-art.js?v=6ee7c4dd';
+import { viewOf } from './cosmetics.js?v=6ee7c4dd';
+import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=6ee7c4dd';
 
 // ---------- config ----------
 const params = new URLSearchParams(location.search);
@@ -95,6 +98,7 @@ const tracker = createTracker({
     onUnlock: (def, xp) => profileUi?.toastUnlock(def, xp),
     onSidePrompt: () => profileUi?.showSidePrompt(),
     onGuessState: () => profileUi?.renderGuess(),
+    onGuessResult: (won) => scene.reactMyKid(won),
   },
 });
 const forecasts = createForecasts({
@@ -103,15 +107,33 @@ const forecasts = createForecasts({
   market,
   enabled: PROGRESS_ENABLED,
   hooks: {
-    onResolved: (res) => profileUi?.toastForecast(res),
+    onResolved: (res) => {
+      profileUi?.toastForecast(res);
+      if (res.result !== 'void') scene.reactMyKid(res.result === 'win');
+    },
     onChange: () => profileUi?.renderGuess(),
   },
 });
 renderer.setForecastSource(() => (PROGRESS_ENABLED ? store.state.f : null));
+// v1.07: my kid + wardrobe. The look is rebuilt only when the team / equipment / unlocks change.
+let myTeam = 'green';
+let myLook = null;
+const cosmetics = createCosmetics({
+  store,
+  tracker,
+  onLook: (look, team) => {
+    myLook = look;
+    myTeam = team;
+    renderer.setMyLook(look);
+    scene.setMyKid(team, look.trailId, look.trail);
+  },
+  toast: (item) => profileUi?.toastItem(item),
+});
 profileUi = createProfileUi({
   store,
   tracker,
   forecasts,
+  cosmetics,
   enabled: PROGRESS_ENABLED,
   storageLabelKey: isTelegram && cloudStorage() ? 'prof.storeTg' : 'prof.storeLocal',
   userName: tgUser?.first_name ?? null,
@@ -161,6 +183,48 @@ const appEl = $('app');
 const stageEl = $('stage');
 let layoutQueued = false;
 
+// Owner's nickname tag: DOM, screen space, positioned with a transform each frame.
+const tagEl = $('my-tag');
+const tagGeo = { css: 1, top: 0, bottom: 0 };
+let tagX = -1;
+let tagY = -1;
+let tagShown = false;
+function nickText() {
+  const n = tgUser?.first_name;
+  if (!n) return t('you');
+  return n.length > 10 ? `${n.slice(0, 10)}…` : n;
+}
+tagEl.textContent = nickText();
+function updateTag() {
+  const k = scene.state.myKid;
+  let show = !!k && !!myLook && k.state !== 'duck';
+  if (show) {
+    const css = tagGeo.css;
+    const h = tagEl.offsetHeight || 20;
+    const x = Math.round(k.x * css);
+    let y = Math.round(markerTopY(`kid_${viewOf(myTeam)}_${k.state}`, 0, k.y, myLook) * css) - 2; // tag bottom
+    let top = y - h;
+    // Never cover the front line: the green kid stands just below the rope, so if the tag above
+    // its head would reach the trench/rope band, hang it under the kid's feet instead.
+    const lineTop = (scene.state.F - 7) * css;
+    const lineBottom = (scene.state.F + 8) * css;
+    if (y > lineTop && top < lineBottom) {
+      top = Math.round((k.y + 2) * css);
+      y = top + h;
+    }
+    show = top >= tagGeo.top && y <= tagGeo.bottom; // never over the HUD insets
+    if (show && (x !== tagX || top !== tagY)) {
+      tagX = x;
+      tagY = top;
+      tagEl.style.transform = `translate(${x}px, ${top}px) translateX(-50%)`;
+    }
+  }
+  if (show !== tagShown) {
+    tagShown = show;
+    tagEl.hidden = !show;
+  }
+}
+
 function layout() {
   layoutQueued = false;
   const cs = getComputedStyle(appEl);
@@ -188,6 +252,10 @@ function layout() {
   const insetBottom = ins.bottom > 0 ? Math.ceil(ins.bottom / css) + 1 : 0;
   if (!scene.state.kids.length) scene.init(H, insetTop, insetBottom);
   else scene.resize(H, insetTop, insetBottom);
+  if (myLook) scene.setMyKid(myTeam, myLook.trailId, myLook.trail);
+  tagGeo.css = css;
+  tagGeo.top = ins.top;
+  tagGeo.bottom = H * css - ins.bottom;
   renderer.draw(round); // resizing clears the canvas; repaint now instead of on the next frame
 }
 const queueLayout = () => {
@@ -362,6 +430,7 @@ setTimeout(() => tutorial.maybeShowFirstRun(), 600);
 window.__sb.tutorial = tutorial;
 setInterval(() => { if (document.documentElement.dataset.layout === 'wide' && !document.hidden) menu.render(); }, 1000);
 onLangChange(() => {
+  tagEl.textContent = nickText();
   applyDom();
   hud.renderLang();
   renderControls();
@@ -397,6 +466,7 @@ function frame(now) {
     tickLogic(now);
     scene.update(dt, { borderT: round.state.borderT, pressure });
     renderer.draw(round);
+    updateTag();
   }
   rafId = requestAnimationFrame(frame);
 }
@@ -408,6 +478,7 @@ window.__sb.step = (seconds = 1, dt = 1 / 60) => {
     scene.update(dt, { borderT: round.state.borderT, pressure });
   }
   renderer.draw(round);
+  updateTag();
 };
 
 document.addEventListener('visibilitychange', () => {

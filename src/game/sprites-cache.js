@@ -1,6 +1,6 @@
 // Bakes sprite data (src/sprites.js) into cached offscreen canvases, one per (sprite, team, frame).
 // Team-swappable chars (H h S s) are replaced by TEAM_COLORS[team]; sprites without them are baked once.
-import { PALETTE, TEAM_COLORS, SPRITES, UI } from '../sprites.js?v=4055052d';
+import { PALETTE, TEAM_COLORS, SPRITES, UI } from '../sprites.js?v=6ee7c4dd';
 
 const TEAM_RE = /[HhSs]/;
 const cache = new Map();
@@ -23,10 +23,11 @@ function usesTeam(name) {
 }
 
 // locked (DESIGN.md §10): every opaque pixel except the `k` outline becomes UI.achLocked.
-function bake(name, team, locked = false) {
+// overrides: extra char → hex colours applied on top of the team palette (cosmetic swaps).
+function bake(name, team, locked = false, overrides = null) {
   const s = SPRITES[name];
   if (!s) throw new Error(`[sprites] missing sprite "${name}"`);
-  const pal = { ...PALETTE, ...(TEAM_COLORS[team] || TEAM_COLORS.green) };
+  const pal = { ...PALETTE, ...(TEAM_COLORS[team] || TEAM_COLORS.green), ...(overrides || {}) };
   const rgb = {};
   const lockedRgb = hexToRgb(UI.achLocked || '#5d6f9e');
   for (const [ch, hex] of Object.entries(pal)) rgb[ch] = !hex ? null : locked && ch !== 'k' ? lockedRgb : hexToRgb(hex);
@@ -54,11 +55,13 @@ function bake(name, team, locked = false) {
 }
 
 // Returns the baked frame canvases for a sprite (team ignored for team-independent sprites).
-export function frames(name, team = 'green', locked = false) {
-  const key = `${usesTeam(name) ? `${name}|${team}` : name}${locked ? '|locked' : ''}`;
+// overrideKey must uniquely describe `overrides` (e.g. the equipped item ids): one bake per
+// combination × team, then cached.
+export function frames(name, team = 'green', locked = false, overrides = null, overrideKey = '') {
+  const key = `${usesTeam(name) || overrides ? `${name}|${team}` : name}${locked ? '|locked' : ''}${overrideKey ? `|${overrideKey}` : ''}`;
   let f = cache.get(key);
   if (!f) {
-    f = bake(name, team, locked);
+    f = bake(name, team, locked, overrides);
     cache.set(key, f);
   }
   return f;
@@ -93,6 +96,8 @@ export function preloadAll() {
 
 // PNG data URL of a sprite frame scaled by an integer factor (for DOM icons / favicon).
 const urlCache = new Map();
+export const hasSprite = (name) => !!SPRITES[name];
+
 export function spriteDataUrl(name, team = 'green', scale = 1, frame = 0, locked = false) {
   const key = `${name}|${team}|${scale}|${frame}|${locked}`;
   if (urlCache.has(key)) return urlCache.get(key);
