@@ -19,6 +19,7 @@ export function connectLiquidations({ onLiquidation, onState }) {
       const price = +(o.ap || o.p);
       if (!(qty > 0 && price > 0)) return;
       onLiquidation({
+        exchange: 'binance',
         side: o.S === 'SELL' ? 'sell' : 'buy',   // direction of the forced order
         liquidated: o.S === 'SELL' ? 'long' : 'short',
         price,

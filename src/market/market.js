@@ -1,22 +1,38 @@
-// Market orchestrator: picks the live price source (Binance → Coinbase → DEMO sim),
-// classifies big prints, throttles giant events and schedules synthetic whales.
+// Market orchestrator: multi-exchange aggregation (default) or a single chosen venue, with a
+// DEMO sim fallback; classifies big prints, throttles giant events, schedules synthetic whales.
+//
+// Venues: Binance spot (BTCUSDT), Bybit spot (BTCUSDT), Coinbase (BTC-USD) + liquidations from
+// Binance USD-M futures and Bybit linear.
+//
+// Source selection (market.setSource): 'AGG' | 'BINANCE' | 'BYBIT' | 'COINBASE'.
+//   AGG: price = mean of venues with a tick in the last 5 s; trades/flow from all venues;
+//        walls = Binance depth20 + Bybit ob50 within ±0.5%.
+//   Single venue: price/trades/walls from that venue only. If it is down the effective source
+//        falls back to AGG and is promoted back once the venue has been stable for 2 s.
+//   DEMO: only when no venue has produced a price for 6 s.
+// Whenever the set of venues behind the price changes automatically (a venue drops, joins late,
+// fallback/promotion), a correction offset keeps the price continuous and decays to 0 (~30 s).
+// A user source change (reason 'user') or leaving DEMO resets the basis — main restarts the round.
 //
 // Events (market.on(type, fn)):
 //   price    { price, change24h, source }                           ≤10 Hz
-//   trade    { exchange, side:'buy'|'sell', price, qty, usd, ts }    exchange: 'binance'|'coinbase'|'demo'
+//   trade    { exchange:'binance'|'bybit'|'coinbase'|'demo', side:'buy'|'sell', price, qty, usd, ts }
 //   bigprint { exchange|null, side, usd, kind:'trade'|'liquidation'|'whale', tier:'big'|'giant',
 //              synthetic, price, ts, liquidated?:'long'|'short', merged?:n }
-//   walls    { bidUsd, askUsd }                                      ~2 Hz (absent on COINBASE source)
+//   walls    { bidUsd, askUsd } | null                               ~2 Hz
 //   flow     { pressure:[-1,1], buyUsd, sellUsd }                     4 Hz
-//   status   { source:'BINANCE'|'COINBASE'|'DEMO'|null, connected, feeds:{binance,coinbase,liquidations} }
-//            source null = still connecting (first ≤6 s).
-//   liquidation { side, liquidated, price, qty, usd, ts }             every liquidation, any size
+//   status   { source:'AGG'|'BINANCE'|'BYBIT'|'COINBASE'|'DEMO'|null, selected, liveCount,
+//              venues:{ binance|bybit|coinbase: { connected, alive, price } },
+//              liquidations:{ binance, bybit }, connected, reason:'user'|undefined }
+//            source null = still connecting (until the first venue answers, ≤6 s).
+//   liquidation { exchange, side, liquidated, price, qty, usd, ts }   every liquidation, any size
 //
 // `side` always means which team the event helps: 'buy' → GREEN, 'sell' → RED.
 import { createEmitter } from './emitter.js';
 import { createFlow } from './flow.js';
 import { createSim } from './sim.js';
 import { connectBinance } from './binance.js';
+import { connectBybit, connectBybitLiquidations } from './bybit.js';
 import { connectCoinbase } from './coinbase.js';
 import { connectLiquidations } from './liquidations.js';
 
@@ -26,37 +42,49 @@ export const TIERS = {
   bigLiquidation: 25_000,
   giantLiquidation: 100_000,
 };
+export const VENUES = ['binance', 'bybit', 'coinbase'];
+export const SOURCES = ['AGG', 'BINANCE', 'BYBIT', 'COINBASE'];
 
-const LIVE_TIMEOUT_MS = 6000;   // feed considered dead after this long without a price
-const RECOVER_MS = 2000;        // a feed must be fresh this long before we switch back to it
-const INITIAL_PREFER_MS = 2500; // on startup, wait this long for Binance before using Coinbase
+const FRESH_MS = 5000;          // a venue counts in the aggregate if it ticked within this
+const DEMO_AFTER_MS = 6000;     // DEMO only after this long with no venue ticking
+const RECOVER_MS = 2000;        // a venue must be fresh this long before it is (re)promoted
+const OFFSET_TAU_MS = 8000;     // basis-change correction decays e^(-t/τ): ~2% left after 30 s
+const WALLS_FRESH_MS = 5000;
 const PRICE_EMIT_MS = 100;
 const FLOW_EMIT_MS = 250;
+const EVAL_MS = 500;
 const LANE_GAPS = { giant: 8000, big: 600 };
 const KIND_PRIORITY = { whale: 0, trade: 1, liquidation: 2 };
 const DEFAULT_START_PRICE = 85000;
+const BIT = { binance: 1, bybit: 2, coinbase: 4 };
 
 const rand = (a, b) => a + Math.random() * (b - a);
+const venueOf = (src) => (src === 'BINANCE' || src === 'BYBIT' || src === 'COINBASE' ? src.toLowerCase() : null);
 
 export function createMarket({
   demo = false,
   whaleIntervalSec = [40, 120],
-  enabledFeeds = { binance: true, coinbase: true, liquidations: true }, // for testing fallbacks
+  source: initialSelection = 'AGG',
+  // for testing fallbacks: which sockets to open, and optional per-venue open delays (ms)
+  enabledFeeds = { binance: true, bybit: true, coinbase: true, liquidations: true },
+  delays = {},
 } = {}) {
   const em = createEmitter();
   const flow = createFlow();
-  const feeds = {
-    binance: { connected: false, price: null, change24h: null, at: 0, freshSince: 0 },
-    coinbase: { connected: false, price: null, change24h: null, at: 0, freshSince: 0 },
-    liquidations: { connected: false },
-  };
+  const venues = {};
+  for (const name of VENUES) {
+    venues[name] = { name, connected: false, price: null, change24h: null, at: 0, freshSince: 0, walls: null, wallsAt: 0 };
+  }
+  const liq = { binance: false, bybit: false };
   const conns = [];
+  const connByVenue = {};
   const timers = [];
   const lanes = {
     giant: { gap: LANE_GAPS.giant, last: 0, queue: [], timer: 0 },
     big: { gap: LANE_GAPS.big, last: 0, queue: [], timer: 0 },
   };
 
+  let selected = SOURCES.includes(initialSelection) ? initialSelection : 'AGG';
   let source = null;
   let startedAt = 0;
   let sim = null;
@@ -67,6 +95,16 @@ export function createMarket({
   let priceEmitTimer = 0;
   let lastPriceEmit = 0;
   let whaleTimer = 0;
+  // price basis continuity
+  let basisMask = 0;
+  let basisReset = true;
+  let offset = 0;
+  let offsetAt = 0;
+  let aliveMask = 0;
+
+  const fresh = (v, now, ms = FRESH_MS) => v.at > 0 && now - v.at < ms;
+  const stable = (v, now) => fresh(v, now) && now - v.freshSince >= RECOVER_MS;
+  const isLive = () => source !== null && source !== 'DEMO';
 
   // ---------- price ----------
   function setPrice(p, ch) {
@@ -87,69 +125,138 @@ export function createMarket({
     em.emit('price', { price, change24h, source });
   }
 
-  function onLivePrice(name, { price: p, change24h: ch }) {
-    const f = feeds[name];
-    const now = Date.now();
-    if (!f.at || now - f.at > LIVE_TIMEOUT_MS) f.freshSince = now;
-    f.at = now;
-    f.price = p;
-    if (ch != null) f.change24h = ch;
-    if (source === feedSource(name)) setPrice(p, f.change24h);
-    else if (source === null || source === 'DEMO') evaluateSource(); // react fast on first data / recovery
+  // Venues whose price feeds the current source (bitmask, no allocation).
+  function contributingMask(now) {
+    const single = venueOf(source);
+    if (single) return fresh(venues[single], now) ? BIT[single] : 0;
+    let mask = 0;
+    for (const name of VENUES) if (fresh(venues[name], now)) mask |= BIT[name];
+    return mask;
   }
 
-  const feedSource = (name) => name.toUpperCase();
+  function change24hFor(now) {
+    const single = venueOf(source);
+    if (single && venues[single].change24h != null) return venues[single].change24h;
+    for (const name of VENUES) {
+      const v = venues[name];
+      if (v.change24h != null && fresh(v, now)) return v.change24h;
+    }
+    return null;
+  }
+
+  // Aggregate / single-venue price with a decaying continuity offset.
+  function updateLivePrice(now) {
+    const mask = contributingMask(now);
+    if (!mask) return;
+    let sum = 0;
+    let n = 0;
+    for (const name of VENUES) {
+      if (mask & BIT[name]) {
+        sum += venues[name].price;
+        n++;
+      }
+    }
+    const raw = sum / n;
+    if (offset !== 0) {
+      offset *= Math.exp(-(now - offsetAt) / OFFSET_TAU_MS);
+      if (Math.abs(offset) < 0.005) offset = 0;
+    }
+    offsetAt = now;
+    if (mask !== basisMask) {
+      // e.g. $30 USDT/USD basis between venues: absorb the step, then let it bleed out
+      offset = basisReset || price == null ? 0 : price - raw;
+      basisMask = mask;
+      basisReset = false;
+    }
+    setPrice(raw + offset, change24hFor(now));
+  }
+
+  function onVenuePrice(name, { price: p, change24h: ch }) {
+    const v = venues[name];
+    const now = Date.now();
+    if (!fresh(v, now)) v.freshSince = now;
+    v.at = now;
+    v.price = p;
+    if (ch != null) v.change24h = ch;
+    if (source === null || source === 'DEMO' || (!(aliveMask & BIT[name]))) evaluateSource(); // joins / first data
+    else if (isLive()) updateLivePrice(now);
+  }
 
   // ---------- source selection ----------
   function pickSource(now) {
     if (demo) return 'DEMO';
-    const b = feeds.binance;
-    const c = feeds.coinbase;
-    const alive = (f) => f.at > 0 && now - f.at < LIVE_TIMEOUT_MS;
-    const stable = (f) => alive(f) && now - f.freshSince >= RECOVER_MS;
-    if (source === null) {
-      // Initial connect: take Binance as soon as it's up; give it a head start before settling for Coinbase.
-      if (alive(b)) return 'BINANCE';
-      if (alive(c) && now - startedAt >= INITIAL_PREFER_MS) return 'COINBASE';
-      return now - startedAt < LIVE_TIMEOUT_MS ? null : 'DEMO';
+    let anyTicking = false;
+    let anyStable = false;
+    for (const name of VENUES) {
+      if (fresh(venues[name], now, DEMO_AFTER_MS)) anyTicking = true;
+      if (stable(venues[name], now)) anyStable = true;
     }
-    // Prefer Binance; switching to a feed other than the current one needs RECOVER_MS of stability.
-    if (source === 'BINANCE' ? alive(b) : stable(b)) return 'BINANCE';
-    if (source === 'COINBASE' ? alive(c) : stable(c)) return 'COINBASE';
-    if (source !== 'DEMO') {
-      if (alive(c)) return 'COINBASE';
-      if (alive(b)) return 'BINANCE';
+    if (!anyTicking) return source === null && now - startedAt < DEMO_AFTER_MS ? null : 'DEMO';
+    if (source === 'DEMO' && !anyStable) return 'DEMO'; // leave DEMO only on a stable venue
+    const single = venueOf(selected);
+    if (single) {
+      const v = venues[single];
+      if (source === selected ? fresh(v, now) : stable(v, now)) return selected;
     }
-    return 'DEMO';
+    return 'AGG'; // whichever venues answer first (no waiting for a preferred one)
   }
 
-  function evaluateSource() {
-    const next = pickSource(Date.now());
-    if (next === source) return;
-    source = next;
-    if (source !== 'BINANCE') walls = null; // depth only comes from Binance (or the sim)
-    if (source === 'DEMO') startSim();
-    else stopSim();
-    if (source === 'BINANCE' || source === 'COINBASE') {
-      const f = feeds[source.toLowerCase()];
-      setPrice(f.price, f.change24h);
+  function evaluateSource(reason) {
+    const now = Date.now();
+    let mask = 0;
+    for (const name of VENUES) if (fresh(venues[name], now)) mask |= BIT[name];
+    const next = pickSource(now);
+    const changed = next !== source;
+    if (changed) {
+      const wasLive = isLive();
+      source = next;
+      if (source === 'DEMO') startSim();
+      else stopSim();
+      if (!wasLive) basisReset = true; // leaving DEMO / first price: no continuity needed
     }
-    emitStatus();
+    if (isLive()) {
+      updateLivePrice(now);
+      updateWalls(now);
+    }
+    if (changed || mask !== aliveMask || reason) {
+      aliveMask = mask;
+      emitStatus(reason);
+    }
   }
 
-  const feedFlags = () => ({
-    binance: feeds.binance.connected,
-    coinbase: feeds.coinbase.connected,
-    liquidations: feeds.liquidations.connected,
-  });
+  function venueSnapshot() {
+    const now = Date.now();
+    const out = {};
+    for (const name of VENUES) {
+      const v = venues[name];
+      out[name] = { connected: v.connected, alive: fresh(v, now), price: v.price, walls: v.walls };
+    }
+    return out;
+  }
 
-  function emitStatus() {
-    em.emit('status', { source, connected: source === 'BINANCE' || source === 'COINBASE', feeds: feedFlags() });
+  function liveCount() {
+    const now = Date.now();
+    let n = 0;
+    for (const name of VENUES) if (fresh(venues[name], now)) n++;
+    return n;
+  }
+
+  function emitStatus(reason) {
+    em.emit('status', {
+      source,
+      selected,
+      liveCount: liveCount(),
+      venues: venueSnapshot(),
+      liquidations: { ...liq },
+      connected: isLive(),
+      reason,
+    });
   }
 
   function startSim() {
     if (sim) return;
     flow.reset();
+    walls = null;
     sim = createSim({
       startPrice: lastKnownPrice || DEFAULT_START_PRICE,
       onPrice: ({ price: p, change24h: ch }) => { if (source === 'DEMO') setPrice(p, ch); },
@@ -163,6 +270,30 @@ export function createMarket({
     sim.close();
     sim = null;
     flow.reset();
+  }
+
+  // Walls = sum of the books behind the current source (Coinbase has no book here).
+  function updateWalls(now) {
+    const single = venueOf(source);
+    let bid = 0;
+    let ask = 0;
+    let n = 0;
+    for (const name of VENUES) {
+      const v = venues[name];
+      if (single && name !== single) continue;
+      if (!v.walls || now - v.wallsAt > WALLS_FRESH_MS) continue;
+      bid += v.walls.bidUsd;
+      ask += v.walls.askUsd;
+      n++;
+    }
+    if (n) setWalls({ bidUsd: bid, askUsd: ask });
+    else if (walls !== null) setWalls(null);
+  }
+
+  function onVenueWalls(name, w) {
+    const v = venues[name];
+    v.walls = w;
+    v.wallsAt = Date.now();
   }
 
   // ---------- trades / walls ----------
@@ -184,8 +315,12 @@ export function createMarket({
     }
   }
 
+  // Live prints count only if their venue is behind the current source.
   function onLiveTrade(t) {
-    if (source !== 'DEMO') onTrade(t); // don't mix stray live prints into the sim
+    if (!isLive()) return; // never mix live prints into the sim
+    const single = venueOf(source);
+    if (single && t.exchange !== single) return;
+    onTrade(t);
   }
 
   function setWalls(w) {
@@ -198,7 +333,7 @@ export function createMarket({
     const tier = l.usd >= TIERS.giantLiquidation ? 'giant' : l.usd >= TIERS.bigLiquidation ? 'big' : null;
     if (!tier) return;
     dispatchBigprint({
-      exchange: 'binance',
+      exchange: l.exchange,
       side: l.side,
       usd: l.usd,
       kind: 'liquidation',
@@ -271,43 +406,73 @@ export function createMarket({
   }
 
   // ---------- lifecycle ----------
+  function openAfter(name, open) {
+    const go = () => {
+      const c = open();
+      conns.push(c);
+      connByVenue[name] = c;
+    };
+    const delay = delays[name] || 0;
+    if (delay) timers.push(setTimeout(go, delay)); // test hook: simulate a slow venue
+    else go();
+  }
+
   function start() {
     startedAt = Date.now();
     if (!demo) {
-      const feedState = (name) => (connected) => {
-        feeds[name].connected = connected;
+      const venueState = (name) => (connected) => {
+        venues[name].connected = connected;
         emitStatus();
       };
-      if (enabledFeeds.binance) conns.push(connectBinance({
-        onPrice: (p) => onLivePrice('binance', p),
+      const liqState = (name) => (connected) => {
+        liq[name] = connected;
+        emitStatus();
+      };
+      if (enabledFeeds.binance) openAfter('binance', () => connectBinance({
+        onPrice: (p) => onVenuePrice('binance', p),
         onTrade: onLiveTrade,
-        onWalls: (w) => { if (source === 'BINANCE') setWalls(w); },
-        onState: feedState('binance'),
+        onWalls: (w) => onVenueWalls('binance', w),
+        onState: venueState('binance'),
       }));
-      if (enabledFeeds.coinbase) conns.push(connectCoinbase({
-        onPrice: (p) => onLivePrice('coinbase', p),
+      if (enabledFeeds.bybit) openAfter('bybit', () => connectBybit({
+        onPrice: (p) => onVenuePrice('bybit', p),
         onTrade: onLiveTrade,
-        onState: feedState('coinbase'),
+        onWalls: (w) => onVenueWalls('bybit', w),
+        onState: venueState('bybit'),
       }));
-      if (enabledFeeds.liquidations) conns.push(connectLiquidations({
-        onLiquidation,
-        onState: feedState('liquidations'),
+      if (enabledFeeds.coinbase) openAfter('coinbase', () => connectCoinbase({
+        onPrice: (p) => onVenuePrice('coinbase', p),
+        onTrade: onLiveTrade,
+        onState: venueState('coinbase'),
       }));
+      if (enabledFeeds.liquidations) {
+        conns.push(connectLiquidations({ onLiquidation, onState: liqState('binance') }));
+        conns.push(connectBybitLiquidations({ onLiquidation, onState: liqState('bybit') }));
+      }
     }
     evaluateSource();
-    emitStatus();
-    timers.push(setInterval(evaluateSource, 500));
+    timers.push(setInterval(() => evaluateSource(), EVAL_MS));
     timers.push(setInterval(() => em.emit('flow', flow.snapshot()), FLOW_EMIT_MS));
     scheduleWhale();
   }
 
   function stop() {
     conns.splice(0).forEach((c) => c.close());
-    timers.splice(0).forEach(clearInterval);
+    timers.splice(0).forEach((t) => { clearInterval(t); clearTimeout(t); });
     clearTimeout(whaleTimer);
     clearTimeout(priceEmitTimer);
     Object.values(lanes).forEach((l) => { clearTimeout(l.timer); l.timer = 0; l.queue.length = 0; });
     stopSim();
+  }
+
+  // User source choice: resets the price basis (the round restarts on reason 'user').
+  function setSource(sel) {
+    if (!SOURCES.includes(sel)) return;
+    selected = sel;
+    basisReset = true;
+    basisMask = -1;
+    flow.reset();
+    evaluateSource('user');
   }
 
   return {
@@ -318,9 +483,21 @@ export function createMarket({
     getPrice: () => price,
     getChange24h: () => change24h,
     getSource: () => source,
+    getSelected: () => selected,
+    setSource,
+    getVenues: venueSnapshot,
+    getLiveCount: liveCount,
     getWalls: () => walls,
     getFlow: () => flow.snapshot(),
-    getFeeds: feedFlags,
+    getFeeds: () => ({
+      binance: venues.binance.connected, bybit: venues.bybit.connected, coinbase: venues.coinbase.connected,
+      liqBinance: liq.binance, liqBybit: liq.bybit,
+    }),
+    getPriceOffset: () => offset,
+    // Test hook: permanently close one venue's socket (simulates it going dark mid-run).
+    debugCloseVenue(name) {
+      connByVenue[name]?.close();
+    },
     getSimRegime: () => sim?.regime ?? null,
     // Debug helper for renderer work: market.debugBigprint('buy', 'giant')
     debugBigprint(side = 'buy', tier = 'giant', kind = 'whale') {

@@ -37,6 +37,7 @@ export function createHud() {
     sideHead: $('side-head'),
     titlePanel: $('title-panel'),
     legendPanel: $('legend-panel'),
+    venuesPanel: $('venues-panel'),
     price: $('price'),
     change: $('change'),
     source: $('source'),
@@ -85,7 +86,7 @@ export function createHud() {
   let bannerHideTimer = 0;
   let bannerAnim = null;
   let pressurePct = 50;
-  let source = null;
+  let status = { source: null, liveCount: 0 };
   let score = { green: 0, red: 0 };
   let change = null;
 
@@ -127,13 +128,17 @@ export function createHud() {
     el.change.className = `chg ${pct >= 0 ? 'up' : 'down'}`;
   }
 
-  // ---------- source ----------
-  function setSource(src) {
-    source = src;
+  // ---------- source badge (a button that opens the source menu) ----------
+  // st: market status { source, liveCount }. AGG shows the live venue count: "AGG ·3".
+  function setSource(st) {
+    status = st;
+    const src = st.source;
     const state = src === null ? 'connecting' : src === 'DEMO' ? 'demo' : 'live';
     el.source.dataset.state = state;
-    el.sourceText.textContent = src ? t(`src.${src}`) : t('src.connecting');
-    el.source.title = src === 'DEMO' ? t('demo.hint') : '';
+    el.sourceText.textContent = src === null ? t('src.connecting')
+      : src === 'AGG' ? `${t('src.AGG')} ·${st.liveCount}` : t(`src.${src}`);
+    el.source.title = src === 'DEMO' ? t('demo.hint') : t('menu.open');
+    el.source.setAttribute('aria-label', `${t('menu.open')}: ${el.sourceText.textContent}`);
   }
 
   // ---------- pressure ----------
@@ -260,7 +265,8 @@ export function createHud() {
     if (mode === 'wide') {
       setFeedExpanded(false);
       el.sideHead.append(el.ticker, el.controls);
-      el.side.append(el.titlePanel, el.sideHead, el.scorePanel, el.pressurePanel, el.feedPanel, el.wallsPanel, el.legendPanel);
+      el.side.append(el.titlePanel, el.sideHead, el.scorePanel, el.pressurePanel, el.feedPanel, el.wallsPanel,
+        el.venuesPanel, el.legendPanel);
     } else {
       el.hudRow.append(el.ticker, el.slotScore, el.controls);
       el.slotScore.append(el.scorePanel);
@@ -284,7 +290,7 @@ export function createHud() {
   }
 
   function renderLang() {
-    setSource(source);
+    setSource(status);
     setChange(change);
     renderPressure();
     setScore(score);

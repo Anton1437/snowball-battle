@@ -31,7 +31,7 @@
           </div>
           <div id="slot-score" class="slot-score"></div>
           <div id="controls" class="hud-right">
-            <div id="source" class="src-badge" data-state="connecting"><span class="dot" aria-hidden="true"></span><span id="source-text"></span></div>
+            <button id="source" class="src-badge" type="button" data-state="connecting" aria-haspopup="dialog" aria-expanded="false"><span class="dot" aria-hidden="true"></span><span id="source-text"></span><span class="caret" aria-hidden="true"></span></button>
             <div class="toggles">
               <button id="btn-sound" class="btn btn-icon" type="button" aria-pressed="false">
                 <svg class="ico-sound" viewBox="0 0 10 8" width="20" height="16" aria-hidden="true" shape-rendering="crispEdges">
@@ -86,6 +86,10 @@
       <div class="ttl"><span data-i18n="feed.title"></span><span id="feed-more" class="feed-more" aria-hidden="true"></span></div>
       <ul id="feed" class="feed-list" aria-live="polite"></ul>
     </section>
+    <section id="venues-panel" class="panel venues">
+      <div class="ttl" data-i18n="venues.title"></div>
+      <div id="venues-list" class="source-list" role="radiogroup" data-i18n-aria="menu.title"></div>
+    </section>
     <section id="legend-panel" class="panel legend">
       <div class="ttl" data-i18n="legend.title"></div>
       <ul class="legend-list">
@@ -98,6 +102,25 @@
         <li><span class="ic" data-icon="crown:green:2"></span><span data-i18n="legend.win"></span></li>
       </ul>
     </section>
+  </div>
+
+  <!-- Data-source menu: popover (wide) / bottom sheet (phone) -->
+  <div id="source-menu" class="menu" hidden>
+    <div class="menu-backdrop"></div>
+    <div class="panel menu-sheet" role="dialog" aria-modal="true" aria-labelledby="menu-title">
+      <div class="menu-head">
+        <h2 id="menu-title" class="menu-title" data-i18n="menu.title"></h2>
+        <button id="menu-close" class="btn btn-icon" type="button" data-i18n-aria="menu.close">
+          <svg viewBox="0 0 7 7" width="14" height="14" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></svg>
+        </button>
+      </div>
+      <div id="menu-sources" class="source-list" role="radiogroup" aria-labelledby="menu-title"></div>
+      <h3 class="menu-sub" data-i18n="menu.settings"></h3>
+      <div class="menu-settings">
+        <button id="menu-sound" class="setting" type="button" role="switch" aria-checked="false"><span data-i18n="menu.sound"></span><span class="state"></span></button>
+        <button id="menu-lang" class="setting" type="button"><span data-i18n="menu.lang"></span><span class="state"></span></button>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="src/main.js"></script>

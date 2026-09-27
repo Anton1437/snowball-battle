@@ -1,15 +1,18 @@
 // App wiring: market data → round logic → scene + renderer → DOM HUD.
 // URL params: ?demo=1 force DEMO · ?fast=1 ±$30 rounds + frequent whales (testing)
 //             ?range=150 fixed half-range (default: adaptive on live data, $150 in DEMO)
-//             ?lang=ru|en · ?feeds=coinbase,liquidations (fallback testing) · ?debug=1 readout
-import { createMarket } from './market/market.js';
+//             ?lang=ru|en · ?debug=1 readout · ?source=agg|binance|bybit|coinbase (overrides saved choice)
+//             ?feeds=binance,bybit,coinbase,liquidations  only open these sockets (fallback testing)
+//             ?delay=binance:5000  open a venue's socket late (tests late joiners in AGG)
+import { createMarket, SOURCES } from './market/market.js';
+import { createSourceMenu } from './source-menu.js';
 import { createRound } from './game/round.js';
 import { createScene, W } from './game/scene.js';
 import { createRenderer, fitCanvas } from './game/renderer.js';
 import { preloadAll } from './game/sprites-cache.js';
 import { createHud } from './hud.js';
 import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js';
-import { initTelegram, haptic, notify } from './tg.js';
+import { initTelegram, haptic, hapticSelection, notify } from './tg.js';
 import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js';
 
 // ---------- config ----------
@@ -20,12 +23,24 @@ const FAST = flag('fast');
 const DEBUG = flag('debug');
 const FIXED_RANGE = Number(params.get('range')) > 0 ? Number(params.get('range')) : null;
 const feedsParam = params.get('feeds');
-const enabledFeeds = Object.fromEntries(['binance', 'coinbase', 'liquidations']
+const enabledFeeds = Object.fromEntries(['binance', 'bybit', 'coinbase', 'liquidations']
   .map((f) => [f, !feedsParam || feedsParam.split(',').includes(f)]));
+const delays = Object.fromEntries((params.get('delay') || '').split(',').filter(Boolean)
+  .map((pair) => pair.split(':')).map(([k, v]) => [k, Number(v) || 0]));
+const SOURCE_KEY = 'sb.source';
+function initialSource() {
+  const fromUrl = (params.get('source') || '').toUpperCase();
+  if (SOURCES.includes(fromUrl)) return fromUrl;
+  try {
+    const saved = localStorage.getItem(SOURCE_KEY);
+    if (SOURCES.includes(saved)) return saved;
+  } catch { /* storage blocked */ }
+  return 'AGG';
+}
 const reducedMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 const WIDE_MIN_VW = 820;
 const CELEBRATION_MS = FAST ? 2500 : 3200;
-const EXCHANGE_NAMES = { binance: 'Binance', coinbase: 'Coinbase' };
+const EXCHANGE_NAMES = { binance: 'Binance', bybit: 'Bybit', coinbase: 'Coinbase' };
 
 // ---------- setup ----------
 initTelegram({ headerColor: '#10142a', backgroundColor: '#10142a' });
@@ -35,7 +50,9 @@ preloadAll();
 
 const $ = (id) => document.getElementById(id);
 const hud = createHud();
-const market = createMarket({ demo: DEMO, enabledFeeds, whaleIntervalSec: FAST ? [8, 20] : [40, 120] });
+const market = createMarket({
+  demo: DEMO, enabledFeeds, delays, source: initialSource(), whaleIntervalSec: FAST ? [8, 20] : [40, 120],
+});
 const round = createRound({ celebrationMs: CELEBRATION_MS, scoreBucket: DEMO ? 'demo' : 'live' });
 const scene = createScene({
   reducedMotion,
@@ -128,7 +145,7 @@ function bigprintRow(bp) {
   }
   if (bp.kind === 'liquidation') {
     // forced SELL = longs liquidated (helps red); forced BUY = shorts liquidated (helps green)
-    return { icon: ['icon_bolt', 'green', 2], key: bp.side === 'sell' ? 'feed.liqLong' : 'feed.liqShort', amount: formatUsd(bp.usd), amountCls: 'gold' };
+    return { icon: ['icon_bolt', 'green', 2], key: bp.side === 'sell' ? 'feed.liqLong' : 'feed.liqShort', vars, amount: formatUsd(bp.usd), amountCls: 'gold' };
   }
   const giant = bp.tier === 'giant';
   const key = bp.synthetic
@@ -149,17 +166,22 @@ market.on('price', ({ price, change24h }) => {
 market.on('status', (st) => {
   const prev = source;
   source = st.source;
-  hud.setSource(source);
-  if (prev === source || source === null) return;
+  hud.setSource(st);
+  menu?.render();
+  const userSwitch = st.reason === 'user';
+  if ((prev === source && !userSwitch) || source === null) return;
   const wasDemo = prev === 'DEMO';
   const isDemo = source === 'DEMO';
   if (prev === null || wasDemo !== isDemo) {
     applyRangePolicy(source);
     hud.setScore(round.state.score);
   }
-  if (prev !== null) hud.pushFeed({ icon: null, key: 'feed.source', vars: { src: t(`src.${source}`) }, amount: '' });
-  // A DEMO↔live switch jumps the price: start a fresh round (no score) instead of awarding a win.
-  if (prev !== null && wasDemo !== isDemo) {
+  if (prev !== null && prev !== source) {
+    hud.pushFeed({ icon: null, key: 'feed.source', vars: { src: t(`src.${source}`) }, amount: '' });
+  }
+  // A DEMO↔live switch or a user source change jumps the price: start a fresh round (no
+  // score) instead of awarding a win. Automatic venue joins/drops are smoothed in market.js.
+  if (prev !== null && (wasDemo !== isDemo || userSwitch)) {
     round.configure({ clearVolatility: true });
     const price = market.getPrice();
     const ev = price && round.restart(price);
@@ -231,10 +253,31 @@ soundBtn.addEventListener('click', () => {
   play('throw');
 });
 langBtn.addEventListener('click', () => toggleLang());
+
+// Data-source menu (badge → popover / bottom sheet) + side-panel venue list
+const menu = createSourceMenu({
+  market,
+  onSelect(src) {
+    try { localStorage.setItem(SOURCE_KEY, src); } catch { /* ignore */ }
+    hapticSelection();
+    market.setSource(src);
+  },
+  onToggleSound() {
+    toggleSound();
+    renderControls();
+    play('throw');
+  },
+  onToggleLang: () => toggleLang(),
+  isSoundOn: isSoundEnabled,
+});
+menu.mountList($('venues-list'));
+$('source').addEventListener('click', (e) => menu.toggle(e.currentTarget));
+setInterval(() => { if (document.documentElement.dataset.layout === 'wide' && !document.hidden) menu.render(); }, 1000);
 onLangChange(() => {
   applyDom();
   hud.renderLang();
   renderControls();
+  menu.render();
 });
 window.addEventListener('pointerdown', unlockAudio, { passive: true });
 window.addEventListener('keydown', unlockAudio);
@@ -297,7 +340,8 @@ if (DEBUG) {
       `round #${r.roundNo} ${r.phase} ±${r.halfRange}`,
       `${r.low.toFixed(0)}–${r.high.toFixed(0)} T=${r.borderT.toFixed(2)}`,
       `p=${f.pressure.toFixed(2)} vol=${vol ? vol.toFixed(1) : '—'}`,
-      `ws ${Object.entries(market.getFeeds()).map(([k, v]) => `${k.slice(0, 3)}${v ? '+' : '-'}`).join(' ')}`,
+      `ws ${Object.entries(market.getFeeds()).map(([k, v]) => `${k.slice(0, 4)}${v ? '+' : '-'}`).join(' ')}`,
+      `offset ${market.getPriceOffset().toFixed(2)}`,
     ].join('\n');
   }, 250);
 }

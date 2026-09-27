@@ -42,6 +42,12 @@ export function notify(type = 'success') {
   try { webApp.HapticFeedback.notificationOccurred(type); } catch { /* ignore */ }
 }
 
+// Light tick for picking an option (menus, selectors).
+export function hapticSelection() {
+  if (!supports('6.1')) return;
+  try { webApp.HapticFeedback.selectionChanged(); } catch { /* ignore */ }
+}
+
 export function telegramLanguage() {
   return webApp?.initDataUnsafe?.user?.language_code ?? null;
 }
