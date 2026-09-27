@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#10142a">
+  <title>Snowball Battle — live BTC</title>
+  <meta name="description" content="Live Bitcoin price as a pixel-art snowball fight: green-hat buyers vs red-hat sellers. Big trades summon giant snowmen.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Snowball Battle — live BTC">
+  <meta property="og:description" content="Live Bitcoin order flow as a pixel-art snowball fight. Buyers vs sellers, whales and giant snowmen.">
+  <meta property="og:site_name" content="Snowball Battle">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14' shape-rendering='crispEdges'%3E%3Crect x='6' y='3' width='1' height='1' fill='%231a1c2c'/%3E%3Crect x='7' y='3' width='1' height='1' fill='%231a1c2c'/%3E%3Crect x='5' y='4' width='1' height='1' fill='%231a1c2c'/%3E%3Crect x='6' y='4' width='1' height='1' fill='%23ffffff'/%3E%3Crect x='7' y='4' width='1' height='1' fill='%23ffffff'/%3E%3Crect x='8' y='4' width='1' height='1' fill='%231a1c2c'/%3E%3Crect x='4' y='5' width='1' height='1' fill='%231a1c2c'/%3E%3Crect x='5' y='5' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='6' y='5' width='1' height='1' fill='%23bfd2ea'/%3E%3Crect x='7' y='5' width='1' height='1' fill='%23bfd2ea'/%3E%3Crect x='8' y='5' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='9' y='5' width='1' height='1' fill='%231a1c2c'/%3E%3Crect x='3' y='6' width='1' height='1' fill='%231a1c2c'/%3E%3Crect x='4' y='6' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='5' y='6' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='6' y='6' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='7' y='6' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='8' y='6' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='9' y='6' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='10' y='6' width='1' height='1' fill='%231a1c2c'/%3E%3Crect x='2' y='7' width='1' height='1' fill='%231a1c2c'/%3E%3Crect x='3' y='7' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='4' y='7' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='5' y='7' width='1' height='1' fill='%234fa446'/%3E%3Crect x='6' y='7' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='7' y='7' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='8' y='7' width='1' height='1' fill='%234fa446'/%3E%3Crect x='9' y='7' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='10' y='7' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='11' y='7' width='1' height='1' fill='%231a1c2c'/%3E%3Crect x='2' y='8' width='1' height='1' fill='%231a1c2c'/%3E%3Crect x='3' y='8' width='1' height='1' fill='%234fa446'/%3E%3Crect x='4' y='8' width='1' height='1' fill='%234fa446'/%3E%3Crect x='5' y='8' width='1' height='1' fill='%234fa446'/%3E%3Crect x='6' y='8' width='1' height='1' fill='%234fa446'/%3E%3Crect x='7' y='8' width='1' height='1' fill='%234fa446'/%3E%3Crect x='8' y='8' width='1' height='1' fill='%234fa446'/%3E%3Crect x='9' y='8' width='1' height='1' fill='%234fa446'/%3E%3Crect x='10' y='8' width='1' height='1' fill='%234fa446'/%3E%3Crect x='11' y='8' width='1' height='1' fill='%231a1c2c'/%3E%3Crect x='2' y='9' width='1' height='1' fill='%231a1c2c'/%3E%3Crect x='3' y='9' width='1' height='1' fill='%23d99670'/%3E%3Crect x='4' y='9' width='1' height='1' fill='%238c5a35'/%3E%3Crect x='5' y='9' width='1' height='1' fill='%238c5a35'/%3E%3Crect x='6' y='9' width='1' height='1' fill='%238c5a35'/%3E%3Crect x='7' y='9' width='1' height='1' fill='%238c5a35'/%3E%3Crect x='8' y='9' width='1' height='1' fill='%238c5a35'/%3E%3Crect x='9' y='9' width='1' height='1' fill='%238c5a35'/%3E%3Crect x='10' y='9' width='1' height='1' fill='%23d99670'/%3E%3Crect x='11' y='9' width='1' height='1' fill='%231a1c2c'/%3E%3Crect x='3' y='10' width='1' height='1' fill='%231a1c2c'/%3E%3Crect x='4' y='10' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='5' y='10' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='6' y='10' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='7' y='10' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='8' y='10' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='9' y='10' width='1' height='1' fill='%23a6e85c'/%3E%3Crect x='10' y='10' width='1' height='1' fill='%231a1c2c'/%3E%3C/svg%3E">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Tiny5&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app" class="app">
+    <main id="stage" class="stage">
+      <canvas id="field" class="field" aria-label="Snowball battle field"></canvas>
+
+      <div id="hud-top" class="hud-top">
+        <div id="hud-row" class="hud-row">
+          <div id="ticker" class="panel ticker">
+            <div id="price" class="price">—</div>
+            <div id="change" class="chg"></div>
+          </div>
+          <div id="slot-score" class="slot-score"></div>
+          <div id="controls" class="hud-right">
+            <div id="source" class="src-badge" data-state="connecting"><span class="dot" aria-hidden="true"></span><span id="source-text"></span></div>
+            <div class="toggles">
+              <button id="btn-sound" class="btn btn-icon" type="button" aria-pressed="false">
+                <svg class="ico-sound" viewBox="0 0 10 8" width="20" height="16" aria-hidden="true" shape-rendering="crispEdges">
+                  <path fill="currentColor" d="M0 3h2v2H0zM2 2h1v4H2zM3 1h1v6H3zM4 0h1v8H4z"/>
+                  <path class="waves" fill="currentColor" d="M6 3h1v2H6zM7 1h1v1H7zM8 2h1v4H8zM7 6h1v1H7z"/>
+                  <path class="mute" fill="currentColor" d="M6 2h1v1H6zM9 2h1v1H9zM7 3h2v2H7zM6 5h1v1H6zM9 5h1v1H9z"/>
+                </svg>
+              </button>
+              <button id="btn-lang" class="btn" type="button"></button>
+            </div>
+          </div>
+        </div>
+        <div id="slot-top" class="slot-top"></div>
+      </div>
+
+      <div id="hud-bottom" class="hud-bottom"></div>
+
+      <div id="banner" class="banner" hidden aria-live="assertive">
+        <div class="band"><div id="banner-title" class="banner-title"></div><div id="banner-sub" class="banner-sub"></div></div>
+      </div>
+
+      <div id="loading" class="loading">
+        <div class="panel loading-panel"><span id="loading-icon"></span><span id="loading-text" class="loading-text">LOADING</span></div>
+      </div>
+
+      <pre id="debug" class="debug" hidden></pre>
+    </main>
+
+    <aside id="side" class="side"></aside>
+  </div>
+
+  <!-- HUD panels; moved into the field overlays (phone) or the side panel (wide) by src/hud.js -->
+  <div id="panel-holder" hidden>
+    <section id="title-panel" class="panel title-panel">
+      <h1 class="game-title" data-i18n="side.title"></h1>
+      <div class="game-sub" data-i18n="side.subtitle"></div>
+    </section>
+    <div id="side-head" class="side-head"></div>
+    <section id="pressure-panel" class="panel pressure" role="img">
+      <div class="pbar-labels"><span id="pressure-buy" class="g"></span><span id="pressure-sell" class="r"></span></div>
+      <div class="pbar"><div id="pressure-fill" class="fill"></div><div class="mid"></div></div>
+    </section>
+    <section id="score-panel" class="panel score" role="img">
+      <span id="score-icon-green"></span><span id="score-green" class="g">0</span><span class="sep">:</span><span id="score-red" class="r">0</span><span id="score-icon-red"></span>
+    </section>
+    <section id="walls-panel" class="panel walls">
+      <div class="ttl" data-i18n="walls.title"></div>
+      <div class="wall-row"><span data-i18n="walls.bid"></span><span id="wall-bid" class="amt buy"></span></div>
+      <div class="wall-row"><span data-i18n="walls.ask"></span><span id="wall-ask" class="amt sell"></span></div>
+    </section>
+    <section id="feed-panel" class="panel feed" aria-expanded="false">
+      <div class="ttl"><span data-i18n="feed.title"></span><span id="feed-more" class="feed-more" aria-hidden="true"></span></div>
+      <ul id="feed" class="feed-list" aria-live="polite"></ul>
+    </section>
+    <section id="legend-panel" class="panel legend">
+      <div class="ttl" data-i18n="legend.title"></div>
+      <ul class="legend-list">
+        <li><span class="ic" data-icon="icon_head_back:green:2"></span><span data-i18n="legend.green"></span></li>
+        <li><span class="ic" data-icon="icon_head_front:red:2"></span><span data-i18n="legend.red"></span></li>
+        <li><span class="ic"><i class="rope-ico"></i></span><span data-i18n="legend.line"></span></li>
+        <li><span class="ic" data-icon="ball_big:green:2"></span><span data-i18n="legend.ball"></span></li>
+        <li><span class="ic" data-icon="giant_back_idle:green:1"></span><span data-i18n="legend.giant"></span></li>
+        <li><span class="ic" data-icon="whale:green:2"></span><span data-i18n="legend.whale"></span></li>
+        <li><span class="ic" data-icon="crown:green:2"></span><span data-i18n="legend.win"></span></li>
+      </ul>
+    </section>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

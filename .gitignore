@@ -1,0 +1,5 @@
+# Internal docs stay local (not published)
+BRIEF.md
+design/
+gamification/
+.DS_Store
