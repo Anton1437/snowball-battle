@@ -2,9 +2,9 @@
 // guesses, "seen" market events, XP with daily caps, achievements. Only counts while the
 // source is live (never DEMO/null), the page is visible, test URL params are absent (unless
 // ?progtest=1) and this tab holds the multi-tab lock. Durations use monotonic time only.
-import { utcDayOf } from './store.js?v=84e3b46d';
-import { checkAll, RARITY_XP } from './achievements.js?v=84e3b46d';
-import { isGuessLocked, roundSig } from './guess.js?v=84e3b46d';
+import { utcDayOf } from './store.js?v=c25edd2d';
+import { checkAll, RARITY_XP } from './achievements.js?v=c25edd2d';
+import { isGuessLocked, roundSig } from './guess.js?v=c25edd2d';
 
 const TICK_MS = 1000;
 const MAX_STEP_S = 1.5;
@@ -14,8 +14,11 @@ const EARLY_GUESS_S = 10;
 const ROUND_MIN_S = 30;
 const ROUND_VISIBLE_SHARE = 0.6;
 const XP = { day: 20, minute: 1, round: 3, guess: 5, guessWin: 10 };
-const XP_CAP = { watch: 30, guess: 60, round: 30 }; // per UTC day: xd = [watch, guess, round]
-const XD_INDEX = { watch: 0, guess: 1, round: 2 };
+// Daily XP caps per UTC day: xd = [watch, guess, round, forecastShort, forecastLong].
+// Long horizons (1ч/4ч/24ч) have their own bucket so farming 1-minute forecasts can never
+// crowd out the 24ч payout (80): 160 = one of each long horizon + room for a few 1ч.
+const XP_CAP = { watch: 30, guess: 60, round: 30, fcShort: 60, fcLong: 160 };
+const XD_INDEX = { watch: 0, guess: 1, round: 2, fcShort: 3, fcLong: 4 };
 const LIVE_SOURCES = new Set(['AGG', 'BINANCE', 'BYBIT', 'COINBASE']);
 
 export function createTracker({ store, round, enabled, isVisibleExtra = () => true, hooks = {} }) {
@@ -68,7 +71,7 @@ export function createTracker({ store, round, enabled, isVisibleExtra = () => tr
     if (d <= q.day) return false;
     q.day = d;
     q.wd = 0;
-    q.xd = [0, 0, 0];
+    q.xd = [0, 0, 0, 0, 0];
     if (q.st[2] < d - 1) q.st[0] = 0; // streak broken
     dayLiveSeconds = 0;
     sidePromptShown = false;
@@ -278,6 +281,12 @@ export function createTracker({ store, round, enabled, isVisibleExtra = () => tr
     today,
     // QA: re-run achievement checks after counters were edited by hand
     recheck() { changed(); },
+    // shared with the forecast module
+    addXp,
+    changed,
+    rollDay,
+    markActiveDay,
+    get visible() { return visible(); },
     stop() { clearInterval(timer); },
     _round: rnd,
   };

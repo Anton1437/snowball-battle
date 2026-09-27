@@ -2,8 +2,8 @@
 // legend, victory banner, loading state. Panels are CSS-px sized (independent of the canvas
 // scale) and moved between the on-field overlays (portrait phone) and the side panel (wide)
 // by setLayout(). measureInsets() reports how much of the field the overlays cover.
-import { t, formatPrice, formatUsd, formatChange } from './i18n.js?v=84e3b46d';
-import { spriteDataUrl } from './game/sprites-cache.js?v=84e3b46d';
+import { t, formatPrice, formatUsd, formatChange } from './i18n.js?v=c25edd2d';
+import { spriteDataUrl } from './game/sprites-cache.js?v=c25edd2d';
 
 const FEED_MAX = 6;
 const FEED_COLLAPSED = 2;

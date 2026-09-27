@@ -35,6 +35,14 @@ to advance the scene deterministically, `__sb.forceActive = true` to let events 
 
 Scores are kept separately for live data and DEMO (`localStorage` keys `sb.score.v1` / `sb.score.demo.v1`).
 
+Readable text (profile, achievements, forecasts, tutorial) uses Inter via one CSS token in `styles.css`:
+`--font-read: 'Inter', …`. To revert to pixel text, change that one line to `--font-read: var(--body);`.
+
+Time forecasts (phase 5): pick 1м…24ч and ▲ higher / ▼ lower; one active forecast per horizon. They resolve
+live at expiry, or — if the app was closed — from the public 1-minute kline close of the expiry minute
+(Binance, then data-api.binance.vision, then Bybit). AGG entries resolved that way use the Binance/Bybit USDT
+close, so a few-dollar basis vs the AGG average is accepted. |Δ| < 0.01 % is void.
+
 Achievements & profile (v1.05, see `gamification/V105-CLIENT.md`): stored in Telegram CloudStorage
 (`sb_prog_v1`, Bot API 6.9+) with a localStorage mirror (`sb.prog.v1.<uid>`). Nothing counts in DEMO or on
 test links. QA console: `__sb.progress.state`, `.set({ gi: 24 })`, `.fakeDay(1)`, `.reset()`, `.flush()`.

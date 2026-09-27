@@ -12,10 +12,21 @@ const LOCK_STALE_MS = 5000;
 
 export const utcDayOf = (ms) => Math.floor(ms / DAY_MS);
 
+export const SCHEMA_VERSION = 2;
+export const HORIZON_COUNT = 6;
+const emptyFh = () => Array.from({ length: HORIZON_COUNT }, () => [0, 0, 0, 0, 0]);
+
+// v2 adds time-horizon forecasts (phase 5):
+//   f:  active forecasts, ≤ 1 per horizon: [h, 'u'|'d', entryPrice, entryMs, src]
+//       src: 'A' AGG · 'B' Binance · 'Y' Bybit · 'C' Coinbase
+//   fh: per horizon [made, won, streak, bestStreak, void]
+//   fd: [utcDay, bitmask of horizons won that day]   (Full Spectrum)
+//   xd: [watch, guess, round, forecastShort(1м–15м), forecastLong(1ч–24ч)] daily XP
+//   tu: 1 once the tutorial was seen
 export function defaultProfile(day, uid = null) {
   return {
-    v: 1, rev: 0, uid, d0: day, day,
-    w: 0, wd: 0, xd: [0, 0, 0],
+    v: SCHEMA_VERSION, rev: 0, uid, d0: day, day,
+    w: 0, wd: 0, xd: [0, 0, 0, 0, 0],
     rw: 0, gi: 0, wh: 0, lq: 0, av: 0,
     g: [0, 0, 0, 0, 0],
     sd: null, ly: null,
@@ -23,16 +34,32 @@ export function defaultProfile(day, uid = null) {
     xp: 0,
     a: {},
     pg: null,
+    f: [],
+    fh: emptyFh(),
+    fd: [day, 0],
+    tu: 0,
   };
 }
 
-// Schema migrations live here (v1.1 will set v:2 + migrated:true and stop local tracking).
+// Schema migrations, oldest first. (The v1.1 server import will use its own marker —
+// `migrated:true` / v3 — since v2 is now the forecast schema.)
 function migrate(data, day, uid) {
   if (!data || typeof data !== 'object') return null;
-  switch (data.v) {
-    case 1: {
+  let d = data;
+  switch (d.v) {
+    case 1: { // v1 → v2: forecasts, per-horizon counters, two more daily XP buckets
+      const xd = [...(d.xd || [])];
+      while (xd.length < 5) xd.push(0);
+      d = { ...d, v: 2, xd, f: [], fh: emptyFh(), fd: [d.day ?? day, 0], tu: 0 };
+    }
+    // falls through
+    case 2: {
       const base = defaultProfile(day, uid);
-      return { ...base, ...data, xd: data.xd || base.xd, g: data.g || base.g, st: data.st || base.st, a: data.a || {} };
+      const out = { ...base, ...d, xd: d.xd || base.xd, g: d.g || base.g, st: d.st || base.st, a: d.a || {} };
+      out.f = Array.isArray(d.f) ? d.f.slice(0, HORIZON_COUNT) : [];
+      out.fh = Array.isArray(d.fh) && d.fh.length === HORIZON_COUNT ? d.fh : emptyFh();
+      out.fd = Array.isArray(d.fd) ? d.fd : base.fd;
+      return out;
     }
     default:
       return null; // unknown / future version: ignore rather than corrupt
@@ -55,6 +82,10 @@ export function merge(local, cloud) {
   out.st[1] = maxOf(local.st[1], cloud.st[1]);
   out.a = { ...local.a };
   for (const [id, day] of Object.entries(cloud.a || {})) out.a[id] = id in out.a ? Math.min(out.a[id], day) : day;
+  // forecasts: active list + streaks from the newer copy (never resurrect a resolved one);
+  // per-horizon made/won/best/void by max
+  out.fh = (newer.fh || emptyFh()).map((row, h) => row.map((v, i) => (i === 2 ? v : maxOf(local.fh?.[h]?.[i], cloud.fh?.[h]?.[i]))));
+  out.tu = maxOf(local.tu, cloud.tu);
   out.d0 = Math.min(local.d0 ?? Infinity, cloud.d0 ?? Infinity);
   out.rev = maxOf(local.rev, cloud.rev);
   return out;

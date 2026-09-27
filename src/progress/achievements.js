@@ -1,4 +1,4 @@
-// v1.05 achievements (gamification/V105-CLIENT.md §3): 15 client-checkable definitions.
+// Achievements: the 15 from gamification/V105-CLIENT.md §3 + 4 forecast ones (phase 5).
 // icon: [sprite, team, scale] (or 'hot5' composite). check(p, ctx) → boolean.
 // progress(p) → [current, target] for locked cells with a numeric counter.
 // ctx (only at a resolved guess): { guessWon, side:'g'|'r', giantSides:Set<'g'|'r'> }
@@ -35,7 +35,22 @@ export const ACHIEVEMENTS = [
     id: 'loyal_red', rarity: 'rare', icon: ['icon_head_front', 'red', 2],
     check: (p) => p.ly?.[0] === 'r' && p.ly[1] >= 14, progress: (p) => count(p.ly?.[0] === 'r' ? p.ly[1] : 0, 14),
   },
+  // phase 5: time-horizon forecasts (fh[h] = [made, won, streak, best, void]; fd = [day, wonMask])
+  { id: 'scalper', rarity: 'common', icon: ['icon_bolt', 'green', 2], check: (p) => p.fh[0][1] >= 10, progress: (p) => count(p.fh[0][1], 10) },
+  { id: 'swing', rarity: 'rare', icon: ['ach_flame', 'green', 2], check: (p) => p.fh[4][1] >= 5, progress: (p) => count(p.fh[4][1], 5) },
+  { id: 'day_prophet', rarity: 'epic', icon: ['ach_calendar', 'green', 2], check: (p) => p.fh[5][1] >= 1, progress: (p) => count(p.fh[5][1], 1) },
+  {
+    id: 'full_spectrum', rarity: 'legendary', icon: ['crown', 'green', 2],
+    check: (p) => p.fd[0] === p.day && p.fd[1] === 0b111111,
+    progress: (p) => count(p.fd[0] === p.day ? popcount(p.fd[1]) : 0, 6),
+  },
 ];
+
+function popcount(n) {
+  let c = 0;
+  for (let x = n; x; x &= x - 1) c++;
+  return c;
+}
 
 export const byId = Object.fromEntries(ACHIEVEMENTS.map((a) => [a.id, a]));
 

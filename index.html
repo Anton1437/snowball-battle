@@ -16,8 +16,8 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Tiny5&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=84e3b46d">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Press+Start+2P&family=Tiny5&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=c25edd2d">
 </head>
 <body>
   <div id="app" class="app">
@@ -59,16 +59,17 @@
 
       <div id="side-prompt" class="panel side-prompt" hidden role="dialog" aria-labelledby="side-prompt-title">
         <div id="side-prompt-title" class="side-prompt-title" data-i18n="prof.sidePick"></div>
+        <div class="side-prompt-sub read" data-i18n="prof.sideNote"></div>
         <div class="side-prompt-actions">
-          <button class="gbtn g" type="button" data-side="g"><i class="tri up" aria-hidden="true"></i><span data-i18n="guess.green"></span></button>
-          <button class="gbtn r" type="button" data-side="r"><i class="tri down" aria-hidden="true"></i><span data-i18n="guess.red"></span></button>
+          <button class="gbtn g" type="button" data-side="g"><i class="tri up" aria-hidden="true"></i><span data-i18n="side.green"></span></button>
+          <button class="gbtn r" type="button" data-side="r"><i class="tri down" aria-hidden="true"></i><span data-i18n="side.red"></span></button>
           <button class="gbtn later" type="button" data-side="later" data-i18n="prof.sideLater"></button>
         </div>
       </div>
 
       <div id="ach-toast" class="panel ach-toast" hidden role="status" aria-live="polite">
         <img id="ach-toast-icon" class="px-icon" alt="">
-        <div class="ach-toast-text"><div class="ach-toast-kicker" data-i18n="toast.ach"></div><div id="ach-toast-name" class="ach-toast-name"></div></div>
+        <div class="ach-toast-text"><div id="ach-toast-kicker" class="ach-toast-kicker"></div><div id="ach-toast-name" class="ach-toast-name read"></div></div>
         <div id="ach-toast-xp" class="ach-toast-xp"></div>
       </div>
 
@@ -98,12 +99,34 @@
     </section>
     <section id="profile-panel" class="panel profile-panel" hidden></section>
     <section id="guess-panel" class="panel guess" hidden>
-      <span id="guess-label" class="guess-label"></span>
-      <span id="guess-actions" class="guess-actions">
-        <button class="gbtn g" type="button" data-side="g"><i class="tri up" aria-hidden="true"></i><span data-i18n="guess.green"></span></button>
-        <button class="gbtn r" type="button" data-side="r"><i class="tri down" aria-hidden="true"></i><span data-i18n="guess.red"></span></button>
+      <button id="guess-mode" class="mode-btn" type="button"></button>
+      <span id="guess-round" class="guess-part">
+        <span id="guess-label" class="guess-label"></span>
+        <span id="guess-actions" class="guess-actions">
+          <button class="gbtn g" type="button" data-side="g"><i class="tri up" aria-hidden="true"></i><span data-i18n="guess.green"></span></button>
+          <button class="gbtn r" type="button" data-side="r"><i class="tri down" aria-hidden="true"></i><span data-i18n="guess.red"></span></button>
+        </span>
+        <span id="guess-note" class="guess-note" data-i18n="guess.leaveNote"></span>
       </span>
-      <span id="guess-note" class="guess-note" data-i18n="guess.leaveNote"></span>
+      <span id="guess-fc" class="guess-part fc-part" hidden>
+        <button id="fc-pick" class="chip pick" type="button" aria-haspopup="true" aria-expanded="false"></button>
+        <span id="fc-actions" class="guess-actions">
+          <button class="gbtn g" type="button" data-dir="u"><i class="tri up" aria-hidden="true"></i><span data-i18n="fc.up"></span></button>
+          <button class="gbtn r" type="button" data-dir="d"><i class="tri down" aria-hidden="true"></i><span data-i18n="fc.down"></span></button>
+        </span>
+        <button id="fc-count" class="fc-count" type="button" hidden></button>
+      </span>
+      <div id="fc-picker" class="panel fc-picker" role="radiogroup" data-i18n-aria="fc.pickH" hidden></div>
+    </section>
+    <section id="forecast-panel" class="panel forecast-panel" hidden>
+      <div class="ttl" data-i18n="fc.title"></div>
+      <div id="fc-chips" class="fc-chips" role="radiogroup" data-i18n-aria="fc.pickH"></div>
+      <div id="fc-wide-actions" class="fc-wide-actions">
+        <button class="gbtn g" type="button" data-dir="u"><i class="tri up" aria-hidden="true"></i><span data-i18n="fc.up"></span></button>
+        <button class="gbtn r" type="button" data-dir="d"><i class="tri down" aria-hidden="true"></i><span data-i18n="fc.down"></span></button>
+      </div>
+      <div id="fc-wide-hint" class="fc-hint read"></div>
+      <div id="fc-list" class="fc-list read"></div>
     </section>
     <section id="walls-panel" class="panel walls">
       <div class="ttl" data-i18n="walls.title"></div>
@@ -147,6 +170,7 @@
       <div class="menu-settings">
         <button id="menu-sound" class="setting" type="button" role="switch" aria-checked="false"><span data-i18n="menu.sound"></span><span class="state"></span></button>
         <button id="menu-lang" class="setting" type="button"><span data-i18n="menu.lang"></span><span class="state"></span></button>
+        <button id="menu-help" class="setting setting-help" type="button" data-i18n-aria="tut.replay"><span aria-hidden="true">?</span></button>
       </div>
     </div>
   </div>
@@ -161,10 +185,40 @@
           <svg viewBox="0 0 7 7" width="14" height="14" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></svg>
         </button>
       </div>
-      <div id="profile-body" class="profile-body"></div>
+      <div id="profile-body" class="profile-body read"></div>
     </div>
   </div>
 
-  <script type="module" src="src/main.js?v=84e3b46d"></script>
+  <!-- First-launch tutorial (3 cards) -->
+  <div id="tutorial" class="menu tutorial" hidden>
+    <div class="menu-backdrop"></div>
+    <div class="panel menu-sheet tut-sheet" role="dialog" aria-modal="true" aria-labelledby="tut-title">
+      <div class="tut-track">
+        <section class="tut-card" data-card="0">
+          <div class="tut-icons" data-icons="icon_head_back:green:2,icon_head_front:red:2,ball_big:green:2,giant_back_idle:green:1"></div>
+          <h2 class="tut-title" data-i18n="tut.t1"></h2>
+          <p class="tut-body read" data-i18n="tut.b1"></p>
+        </section>
+        <section class="tut-card" data-card="1" hidden>
+          <div class="tut-icons" data-icons="crown:green:2,ach_iceball:green:2,ach_calendar:green:2"></div>
+          <h2 class="tut-title" data-i18n="tut.t2"></h2>
+          <p class="tut-body read" data-i18n="tut.b2"></p>
+        </section>
+        <section class="tut-card" data-card="2" hidden>
+          <div class="tut-icons" data-icons="flag_team:green:2,flag_team:red:2,ach_icicle:green:2"></div>
+          <h2 class="tut-title" data-i18n="tut.t3"></h2>
+          <p class="tut-body read" data-i18n="tut.b3"></p>
+        </section>
+      </div>
+      <div class="tut-nav">
+        <button id="tut-skip" class="btn" type="button" data-i18n="tut.skip"></button>
+        <span id="tut-dots" class="tut-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <button id="tut-next" class="btn tut-next" type="button"></button>
+      </div>
+      <span id="tut-title" class="sr-only" data-i18n="tut.aria"></span>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js?v=c25edd2d"></script>
 </body>
 </html>

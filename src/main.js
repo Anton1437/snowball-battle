@@ -5,21 +5,23 @@
 //             ?feeds=binance,bybit,coinbase,liquidations  only open these sockets (fallback testing)
 //             ?delay=binance:5000  open a venue's socket late (tests late joiners in AGG)
 //             ?progtest=1  allow progress tracking with test params; uses test_-prefixed storage keys
-import { createMarket, SOURCES } from './market/market.js?v=84e3b46d';
-import { createSourceMenu } from './source-menu.js?v=84e3b46d';
-import { createRound } from './game/round.js?v=84e3b46d';
-import { createScene, W } from './game/scene.js?v=84e3b46d';
-import { createRenderer, fitCanvas } from './game/renderer.js?v=84e3b46d';
-import { preloadAll } from './game/sprites-cache.js?v=84e3b46d';
-import { createHud } from './hud.js?v=84e3b46d';
-import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=84e3b46d';
+import { createMarket, SOURCES } from './market/market.js?v=c25edd2d';
+import { createSourceMenu } from './source-menu.js?v=c25edd2d';
+import { createRound } from './game/round.js?v=c25edd2d';
+import { createScene, W } from './game/scene.js?v=c25edd2d';
+import { createRenderer, fitCanvas } from './game/renderer.js?v=c25edd2d';
+import { preloadAll } from './game/sprites-cache.js?v=c25edd2d';
+import { createHud } from './hud.js?v=c25edd2d';
+import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=c25edd2d';
 import {
   initTelegram, haptic, hapticSelection, notify, isTelegram, cloudStorage, telegramUser, isAppActive, onAppActiveChange,
-} from './tg.js?v=84e3b46d';
-import { createStore } from './progress/store.js?v=84e3b46d';
-import { createTracker } from './progress/tracker.js?v=84e3b46d';
-import { createProfileUi } from './profile-ui.js?v=84e3b46d';
-import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=84e3b46d';
+} from './tg.js?v=c25edd2d';
+import { createStore } from './progress/store.js?v=c25edd2d';
+import { createTracker } from './progress/tracker.js?v=c25edd2d';
+import { createProfileUi } from './profile-ui.js?v=c25edd2d';
+import { createForecasts } from './progress/forecast.js?v=c25edd2d';
+import { createTutorial } from './tutorial.js?v=c25edd2d';
+import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=c25edd2d';
 
 // ---------- config ----------
 const params = new URLSearchParams(location.search);
@@ -95,9 +97,21 @@ const tracker = createTracker({
     onGuessState: () => profileUi?.renderGuess(),
   },
 });
+const forecasts = createForecasts({
+  store,
+  tracker,
+  market,
+  enabled: PROGRESS_ENABLED,
+  hooks: {
+    onResolved: (res) => profileUi?.toastForecast(res),
+    onChange: () => profileUi?.renderGuess(),
+  },
+});
+renderer.setForecastSource(() => (PROGRESS_ENABLED ? store.state.f : null));
 profileUi = createProfileUi({
   store,
   tracker,
+  forecasts,
   enabled: PROGRESS_ENABLED,
   storageLabelKey: isTelegram && cloudStorage() ? 'prof.storeTg' : 'prof.storeLocal',
   userName: tgUser?.first_name ?? null,
@@ -114,6 +128,7 @@ window.__sb.progress = {
   get state() { return store.state; },
   store,
   tracker,
+  forecasts,
   ui: profileUi,
   reset: () => store.reset(),
   fakeDay: (n = 1) => tracker.fakeDay(n),
@@ -336,6 +351,15 @@ const menu = createSourceMenu({
 });
 menu.mountList($('venues-list'));
 $('source').addEventListener('click', (e) => menu.toggle(e.currentTarget));
+
+// First-launch tutorial (once), replay via "?" in the settings sheet.
+const tutorial = createTutorial({ store });
+$('menu-help').addEventListener('click', () => {
+  menu.close();
+  tutorial.open();
+});
+setTimeout(() => tutorial.maybeShowFirstRun(), 600);
+window.__sb.tutorial = tutorial;
 setInterval(() => { if (document.documentElement.dataset.layout === 'wide' && !document.hidden) menu.render(); }, 1000);
 onLangChange(() => {
   applyDom();
@@ -343,6 +367,7 @@ onLangChange(() => {
   renderControls();
   menu.render();
   profileUi.render();
+  tutorial.relabel();
 });
 window.addEventListener('pointerdown', unlockAudio, { passive: true });
 window.addEventListener('keydown', unlockAudio);

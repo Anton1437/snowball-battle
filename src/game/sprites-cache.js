@@ -1,6 +1,6 @@
 // Bakes sprite data (src/sprites.js) into cached offscreen canvases, one per (sprite, team, frame).
 // Team-swappable chars (H h S s) are replaced by TEAM_COLORS[team]; sprites without them are baked once.
-import { PALETTE, TEAM_COLORS, SPRITES, UI } from '../sprites.js?v=84e3b46d';
+import { PALETTE, TEAM_COLORS, SPRITES, UI } from '../sprites.js?v=c25edd2d';
 
 const TEAM_RE = /[HhSs]/;
 const cache = new Map();
@@ -125,6 +125,11 @@ export function compositeDataUrl(key, parts, w, h, scale = 1, locked = false) {
 
 // ---------- 3×5 mini font (price-axis labels) ----------
 const textCache = new Map();
+// Engine-side 3×5 glyphs missing from UI.miniFont (forecast horizon labels on the axis).
+const EXTRA_GLYPHS = {
+  m: ['...', '###', '###', '#.#', '#.#'],
+  h: ['#..', '#..', '###', '#.#', '#.#'],
+};
 export function miniTextWidth(str) {
   return str.length ? str.length * UI.miniFont.advance - 1 : 0;
 }
@@ -140,7 +145,7 @@ export function miniText(str, color) {
   const g = c.getContext('2d');
   g.fillStyle = color;
   for (let i = 0; i < str.length; i++) {
-    const glyph = f.glyphs[str[i]];
+    const glyph = f.glyphs[str[i]] || EXTRA_GLYPHS[str[i]];
     if (!glyph) continue;
     for (let gy = 0; gy < f.h; gy++) {
       for (let gx = 0; gx < f.w; gx++) if (glyph[gy][gx] === '#') g.fillRect(i * f.advance + gx, gy, 1, 1);

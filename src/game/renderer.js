@@ -1,9 +1,9 @@
 // Canvas renderer for the scene at logical resolution 192 × H (DESIGN.md §4–§6, §9).
 // Layers: ground → front line → y-sorted actors/props → balls → FX  (all shaken)
 //         → price axis → snowflakes (not shaken). The DOM HUD sits on top.
-import { SPRITES, PALETTE, UI, drawSprite, frames, loopFrame, makeCanvas, miniText, miniTextWidth } from './sprites-cache.js?v=84e3b46d';
-import { W, AXIS_X, FIELD_W } from './scene.js?v=84e3b46d';
-import { axisLevels, signLabel } from './round.js?v=84e3b46d';
+import { SPRITES, PALETTE, UI, drawSprite, frames, loopFrame, makeCanvas, miniText, miniTextWidth } from './sprites-cache.js?v=c25edd2d';
+import { W, AXIS_X, FIELD_W } from './scene.js?v=c25edd2d';
+import { axisLevels, signLabel } from './round.js?v=c25edd2d';
 
 const H_MIN = 256;
 const H_MAX = 420;
@@ -305,6 +305,31 @@ export function createRenderer(canvas, scene) {
     drawSign('marker_sign_hi', F, signLabel(r.price));
   }
 
+  // Active time forecasts: dotted line at each entry price (team colour by direction) with a
+  // tiny horizon label; skipped when the entry is outside the visible band.
+  const FC_LABELS = ['1m', '5m', '15m', '1h', '4h', '24h'];
+  const FC_COLORS = { u: '#a6e85c', d: '#d63a4f' };
+  let getForecasts = null;
+  function drawForecastLines(round) {
+    const list = getForecasts?.();
+    const r = round.state;
+    if (!list || !list.length || r.phase === 'waiting' || !(r.high > r.low)) return;
+    const pxPerUsd = (s.Fmax - s.Fmin) / (r.high - r.low);
+    for (let i = 0; i < list.length; i++) {
+      const fc = list[i];
+      const y = Math.round(s.Fmin + (r.high - fc[2]) * pxPerUsd);
+      if (y < s.top + 2 || y > s.bot - 2) continue;
+      ctx.fillStyle = FC_COLORS[fc[1]] || PALETTE.B;
+      for (let x = (i & 1); x < AXIS_X - 8; x += 3) ctx.fillRect(x, y, 1, 1);
+      const label = miniText(FC_LABELS[fc[0]] || '', FC_COLORS[fc[1]] || PALETTE.B);
+      const ly = y - 7 >= s.top ? y - 7 : y + 2;
+      const lx = 1 + i * 16; // stagger labels so equal entry prices don't hide each other
+      ctx.fillStyle = PALETTE.k;
+      ctx.fillRect(lx, ly - 1, label.width + 2, 7);
+      ctx.drawImage(label, lx + 1, ly);
+    }
+  }
+
   function drawFlakes(t) {
     const fr = frames('snowflake');
     for (const f of s.flakes) {
@@ -327,8 +352,14 @@ export function createRenderer(canvas, scene) {
     drawFx();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     drawAxis(round);
+    drawForecastLines(round);
     drawFlakes(t);
   }
 
-  return { setSize, draw };
+  return {
+    setSize,
+    draw,
+    // fn() → array of active forecasts [h, dir, entryPrice, ...] (read each frame, no copies)
+    setForecastSource(fn) { getForecasts = fn; },
+  };
 }
