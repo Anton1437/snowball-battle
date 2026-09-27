@@ -1,6 +1,8 @@
 # Snowball Battle — BTC live
 
 Live Bitcoin price as a pixel-art snowball fight: green-hat buyers vs red-hat sellers.
+
+**Play:** [t.me/snowball_battle_bot/battle](https://t.me/snowball_battle_bot/battle) · web: [anton1437.github.io/snowball-battle](https://anton1437.github.io/snowball-battle/)
 Static site: vanilla JS ES modules + Canvas 2D, no build step, no backend.
 
 ## Run locally
