@@ -2,11 +2,11 @@
 // sheet (bottom sheet on phone, centred modal on wide), wide side-panel sections, the
 // round-guess / time-forecast bar, the "backing today" prompt and a shared toast queue.
 // Styling per design/DESIGN.md §8 and §10; readable text uses the --font-read token.
-import { t, getLang, formatPrice } from './i18n.js?v=c25edd2d';
-import { spriteDataUrl, compositeDataUrl } from './game/sprites-cache.js?v=c25edd2d';
-import { ACHIEVEMENTS, RARITY_XP, levelOf } from './progress/achievements.js?v=c25edd2d';
-import { HORIZONS } from './progress/forecast.js?v=c25edd2d';
-import { backButton, hapticSelection, notify } from './tg.js?v=c25edd2d';
+import { t, getLang, formatPrice } from './i18n.js?v=4055052d';
+import { spriteDataUrl, compositeDataUrl } from './game/sprites-cache.js?v=4055052d';
+import { ACHIEVEMENTS, RARITY_XP, levelOf } from './progress/achievements.js?v=4055052d';
+import { HORIZONS } from './progress/forecast.js?v=4055052d';
+import { backButton, hapticSelection, notify } from './tg.js?v=4055052d';
 
 const TOAST_HOLD_MS = 2500;
 const TOAST_POP = [{ transform: 'scale(0.2)' }, { transform: 'scale(1)' }];
@@ -287,12 +287,23 @@ export function createProfileUi({ store, tracker, forecasts, enabled, storageLab
   });
 
   // ---------- time forecasts ----------
+  // Chips are created once and then updated in place: this runs on the 200 ms UI refresh, and
+  // replacing the buttons between pointerdown and pointerup swallows the tap (always on iOS).
   function renderChips(container) {
-    container.innerHTML = HORIZONS.map((hz, h) => {
+    if (container.children.length !== HORIZONS.length) {
+      container.innerHTML = HORIZONS.map((_, h) =>
+        `<button class="chip" type="button" role="radio" data-h="${h}"></button>`).join('');
+    }
+    for (const b of container.children) {
+      const h = Number(b.dataset.h);
       const busy = forecasts.isActive(h);
-      return `<button class="chip${h === horizon ? ' on' : ''}${busy ? ' busy' : ''}" type="button" role="radio"
-        aria-checked="${h === horizon}" data-h="${h}" title="${busy ? t('fc.busy') : ''}">${horizonLabel(h)}${busy ? '⏱' : ''}</button>`;
-    }).join('');
+      const text = `${horizonLabel(h)}${busy ? '⏱' : ''}`;
+      if (b.textContent !== text) b.textContent = text;
+      b.classList.toggle('on', h === horizon);
+      b.classList.toggle('busy', busy);
+      b.setAttribute('aria-checked', String(h === horizon));
+      b.title = busy ? t('fc.busy') : '';
+    }
   }
 
   function renderForecastControls() {
@@ -302,7 +313,12 @@ export function createProfileUi({ store, tracker, forecasts, enabled, storageLab
     const busy = forecasts.isActive(horizon);
     const live = tracker.live;
     // phone bar
-    el.fcPick.innerHTML = `${horizonLabel(horizon)}<i class="caret" aria-hidden="true"></i>`;
+    const pickHtml = `${horizonLabel(horizon)}<i class="caret" aria-hidden="true"></i>`;
+    if (el.fcPick.dataset.h !== String(horizon) || el.fcPick.dataset.lang !== t('fc.pickH')) {
+      el.fcPick.innerHTML = pickHtml;
+      el.fcPick.dataset.h = String(horizon);
+      el.fcPick.dataset.lang = t('fc.pickH');
+    }
     el.fcPick.setAttribute('aria-label', `${t('fc.pickH')}: ${horizonLabel(horizon)}`);
     el.fcCount.textContent = rows.length ? t('fc.active', { n: rows.length }) : '';
     el.fcCount.hidden = !rows.length;

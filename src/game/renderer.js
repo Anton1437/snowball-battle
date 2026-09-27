@@ -1,9 +1,9 @@
 // Canvas renderer for the scene at logical resolution 192 × H (DESIGN.md §4–§6, §9).
 // Layers: ground → front line → y-sorted actors/props → balls → FX  (all shaken)
 //         → price axis → snowflakes (not shaken). The DOM HUD sits on top.
-import { SPRITES, PALETTE, UI, drawSprite, frames, loopFrame, makeCanvas, miniText, miniTextWidth } from './sprites-cache.js?v=c25edd2d';
-import { W, AXIS_X, FIELD_W } from './scene.js?v=c25edd2d';
-import { axisLevels, signLabel } from './round.js?v=c25edd2d';
+import { SPRITES, PALETTE, UI, drawSprite, frames, loopFrame, makeCanvas, miniText, miniTextWidth } from './sprites-cache.js?v=4055052d';
+import { W, AXIS_X, FIELD_W } from './scene.js?v=4055052d';
+import { axisLevels, signLabel } from './round.js?v=4055052d';
 
 const H_MIN = 256;
 const H_MAX = 420;

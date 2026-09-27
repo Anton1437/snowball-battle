@@ -1,7 +1,7 @@
 // Coinbase Exchange BTC-USD: `matches` for prints, `ticker` as a price fallback.
 // NOTE: in `match` messages `side` is the MAKER's side; the taker (aggressor) is the opposite.
-import { createSocket } from './ws.js?v=c25edd2d';
-import { createPrintMerger, stripKey } from './prints.js?v=c25edd2d';
+import { createSocket } from './ws.js?v=4055052d';
+import { createPrintMerger, stripKey } from './prints.js?v=4055052d';
 
 const URLS = ['wss://ws-feed.exchange.coinbase.com'];
 const PRODUCT = 'BTC-USD';

@@ -5,23 +5,23 @@
 //             ?feeds=binance,bybit,coinbase,liquidations  only open these sockets (fallback testing)
 //             ?delay=binance:5000  open a venue's socket late (tests late joiners in AGG)
 //             ?progtest=1  allow progress tracking with test params; uses test_-prefixed storage keys
-import { createMarket, SOURCES } from './market/market.js?v=c25edd2d';
-import { createSourceMenu } from './source-menu.js?v=c25edd2d';
-import { createRound } from './game/round.js?v=c25edd2d';
-import { createScene, W } from './game/scene.js?v=c25edd2d';
-import { createRenderer, fitCanvas } from './game/renderer.js?v=c25edd2d';
-import { preloadAll } from './game/sprites-cache.js?v=c25edd2d';
-import { createHud } from './hud.js?v=c25edd2d';
-import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=c25edd2d';
+import { createMarket, SOURCES } from './market/market.js?v=4055052d';
+import { createSourceMenu } from './source-menu.js?v=4055052d';
+import { createRound } from './game/round.js?v=4055052d';
+import { createScene, W } from './game/scene.js?v=4055052d';
+import { createRenderer, fitCanvas } from './game/renderer.js?v=4055052d';
+import { preloadAll } from './game/sprites-cache.js?v=4055052d';
+import { createHud } from './hud.js?v=4055052d';
+import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=4055052d';
 import {
   initTelegram, haptic, hapticSelection, notify, isTelegram, cloudStorage, telegramUser, isAppActive, onAppActiveChange,
-} from './tg.js?v=c25edd2d';
-import { createStore } from './progress/store.js?v=c25edd2d';
-import { createTracker } from './progress/tracker.js?v=c25edd2d';
-import { createProfileUi } from './profile-ui.js?v=c25edd2d';
-import { createForecasts } from './progress/forecast.js?v=c25edd2d';
-import { createTutorial } from './tutorial.js?v=c25edd2d';
-import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=c25edd2d';
+} from './tg.js?v=4055052d';
+import { createStore } from './progress/store.js?v=4055052d';
+import { createTracker } from './progress/tracker.js?v=4055052d';
+import { createProfileUi } from './profile-ui.js?v=4055052d';
+import { createForecasts } from './progress/forecast.js?v=4055052d';
+import { createTutorial } from './tutorial.js?v=4055052d';
+import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=4055052d';
 
 // ---------- config ----------
 const params = new URLSearchParams(location.search);
