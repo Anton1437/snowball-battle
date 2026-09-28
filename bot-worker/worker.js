@@ -1,6 +1,7 @@
 // Snowball Battle bot — Cloudflare Worker (Telegram webhook).
 // Runs outside RU so Bot API calls are reliable. The only secret is BOT_TOKEN (Worker secret).
 //   GET  /health  → ok
+//   GET  /status  → webhook health (no secrets)
 //   GET  /setup   → registers the webhook, commands, menu button and descriptions (idempotent)
 //   POST /webhook → Telegram updates (verified by X-Telegram-Bot-Api-Secret-Token)
 
@@ -118,6 +119,13 @@ export default {
     const url = new URL(req.url);
     if (url.pathname === '/health') return new Response('ok');
     if (!env.BOT_TOKEN) return new Response('BOT_TOKEN secret is not set', { status: 500 });
+    if (url.pathname === '/status') {
+      // Webhook health for monitoring; no secrets (the URL and error text only).
+      const w = await tg(env, 'getWebhookInfo', {});
+      const r = w.result || {};
+      return Response.json({ ok: w.ok, url: r.url, allowed_updates: r.allowed_updates, pending: r.pending_update_count,
+        last_error: r.last_error_message || null, last_error_date: r.last_error_date || null });
+    }
     if (url.pathname === '/setup') {
       return Response.json(await setup(env, url.origin));
     }
