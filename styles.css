@@ -830,3 +830,67 @@ details.wr-slot[open] > .wr-items { padding-bottom: 10px; }
 @media (prefers-reduced-motion: reduce) {
   .pvp-giantbtn { animation: none; }
 }
+
+/* ---------- v1.084: help / onboarding ---------- */
+.menu-settings + .menu-settings { margin-top: 6px; }
+.menu-head-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+
+/* small "?" affordance reused at every contextual help spot */
+.help-q {
+  flex: none; min-width: 22px; min-height: 22px; padding: 0;
+  font: 8px/1 var(--display); color: var(--gold);
+  background: var(--panel); border: 2px solid var(--gold); cursor: pointer;
+}
+.fc-ttl-row { display: flex; justify-content: space-between; align-items: center; }
+.pvp-help-row { display: flex; justify-content: flex-end; padding: 6px 10px 0; }
+
+/* help card: shared dialog for forecast / duel / wardrobe / profile */
+.help-panel { width: 340px; max-height: 80vh; overflow-y: auto; }
+.help-menu:not(.sheet) .help-panel { left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.help-card-icons { display: flex; justify-content: center; align-items: flex-end; gap: 10px; min-height: 40px; margin-bottom: 10px; }
+.help-card-icons .px-icon { max-height: 36px; width: auto; }
+.help-lines { margin: 0; padding: 0 0 0 18px; font-size: 13px; line-height: 1.5; }
+.help-lines li { margin-bottom: 4px; }
+.help-card-example { margin-top: 8px; padding: 6px 8px; border: 2px solid var(--gold); font-size: 12px; line-height: 1.4; color: var(--dim); }
+.help-card-example b { color: var(--gold); font-weight: 600; }
+
+/* first-steps pill (HUD) + sheet */
+.fs-pill {
+  position: absolute; left: 6px; top: calc(var(--top-space, 60px) + 6px); z-index: 6;
+  display: flex; align-items: center; pointer-events: auto; cursor: pointer;
+  font: 8px/1 var(--display); color: var(--gold); background: var(--panel-a);
+  border: 2px solid var(--panel); outline: 2px solid var(--border); outline-offset: -4px;
+  box-shadow: 0 2px 0 var(--shadow); padding: 5px 7px; white-space: nowrap;
+}
+[data-layout="wide"] .fs-pill { top: 12px; }
+.fs-pill[hidden] { display: none; }
+.fs-panel { width: 380px; max-height: 80vh; overflow-y: auto; }
+.fs-menu:not(.sheet) .fs-panel { left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.fs-body { display: flex; flex-direction: column; gap: 6px; }
+.fs-step { display: flex; align-items: center; gap: 10px; padding: 6px; border: 2px solid rgba(93, 111, 158, 0.35); }
+.fs-step.done { border-color: rgba(166, 232, 92, 0.6); background: rgba(166, 232, 92, 0.08); }
+.fs-step .px-icon { flex: none; max-height: 28px; width: auto; }
+.fs-step-body { flex: 1; min-width: 0; }
+.fs-step-name { font-size: 13px; font-weight: 600; }
+.fs-step-how { font-size: 12px; color: var(--dim); line-height: 1.35; margin-top: 2px; }
+.fs-step-check { flex: none; color: var(--up); font-size: 20px; font-weight: 700; }
+.fs-sheet-actions { margin-top: 10px; display: flex; justify-content: flex-end; }
+.fs-foot { margin-top: 4px; font-size: 12px; color: var(--dim); text-align: center; }
+
+/* brief attention flash used by the "Показать" buttons to point at the real UI */
+@keyframes fs-flash { 0%, 100% { outline-color: var(--border); } 50% { outline-color: var(--gold); } }
+.fs-flash { animation: fs-flash 0.5s steps(2) 3; }
+@media (prefers-reduced-motion: reduce) { .fs-flash { animation: none; outline-color: var(--gold); } }
+
+/* rules sheet: collapsible chapters (reusing the wardrobe's <details> look) + FAQ */
+.rules-panel { width: min(560px, calc(100vw - 24px)); max-height: 82vh; overflow-y: auto; }
+.rules-menu:not(.sheet) .rules-panel { left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.rules-body details { border-bottom: 2px solid var(--border); padding: 4px 0; }
+.rules-body summary { cursor: pointer; list-style: none; font-size: 14px; font-weight: 600; padding: 6px 2px; -webkit-tap-highlight-color: transparent; }
+.rules-body summary::-webkit-details-marker { display: none; }
+.rules-body summary::before { content: '▸ '; color: var(--gold); }
+.rules-body details[open] summary::before { content: '▾ '; }
+.rules-body details p { margin: 4px 2px 8px; font-size: 13px; line-height: 1.45; color: var(--text); }
+.rules-faq { margin: 4px 0 0; }
+.rules-faq dt { font-size: 13px; font-weight: 600; margin-top: 10px; }
+.rules-faq dd { margin: 3px 0 0; font-size: 13px; line-height: 1.4; color: var(--dim); }

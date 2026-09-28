@@ -57,9 +57,16 @@ export const ACHIEVEMENTS = [
   { id: 'pvp_flawless', rarity: 'epic', icon: ['ach_iceball', 'green', 2], check: (p) => (p.pv?.c?.[2] || 0) >= 1, progress: (p) => count(p.pv?.c?.[2], 1) },
   { id: 'pvp_streak5', rarity: 'epic', icon: ['ach_calendar', 'green', 2], check: (p) => (p.pv?.w?.[3] || 0) >= 5, progress: (p) => count(p.pv?.w?.[3], 5) },
   { id: 'pvp_legend', rarity: 'legendary', icon: ['crown', 'green', 2], check: (p) => (p.pv?.c?.[1] || 0) >= 1, progress: (p) => count(p.pv?.c?.[1], 1) },
+  // v1.084: "First steps" onboarding quest badge (src/firststeps.js). p.fs = [stepMask, hidden];
+  // all 5 steps done = mask 0b11111. Reuses the item/achievement unlock pattern (§12-style).
+  {
+    id: 'first_steps', rarity: 'common', icon: ['flag_team', 'green', 2],
+    check: (p) => Array.isArray(p.fs) && p.fs[0] === 0b11111,
+    progress: (p) => count(Array.isArray(p.fs) ? popcount(p.fs[0]) : 0, 5),
+  },
 ];
 
-function popcount(n) {
+export function popcount(n) {
   let c = 0;
   for (let x = n; x; x &= x - 1) c++;
   return c;

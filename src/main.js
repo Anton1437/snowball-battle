@@ -5,28 +5,31 @@
 //             ?feeds=binance,bybit,coinbase,liquidations  only open these sockets (fallback testing)
 //             ?delay=binance:5000  open a venue's socket late (tests late joiners in AGG)
 //             ?progtest=1  allow progress tracking with test params; uses test_-prefixed storage keys
-import { createMarket, SOURCES } from './market/market.js?v=43edfa8d';
-import { createSourceMenu } from './source-menu.js?v=43edfa8d';
-import { createRound } from './game/round.js?v=43edfa8d';
-import { createScene, W } from './game/scene.js?v=43edfa8d';
-import { createRenderer, fitCanvas } from './game/renderer.js?v=43edfa8d';
-import { preloadAll } from './game/sprites-cache.js?v=43edfa8d';
-import { createHud } from './hud.js?v=43edfa8d';
-import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=43edfa8d';
+import { createMarket, SOURCES } from './market/market.js?v=0d20a97d';
+import { createSourceMenu } from './source-menu.js?v=0d20a97d';
+import { createRound } from './game/round.js?v=0d20a97d';
+import { createScene, W } from './game/scene.js?v=0d20a97d';
+import { createRenderer, fitCanvas } from './game/renderer.js?v=0d20a97d';
+import { preloadAll } from './game/sprites-cache.js?v=0d20a97d';
+import { createHud } from './hud.js?v=0d20a97d';
+import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=0d20a97d';
 import {
   initTelegram, haptic, hapticSelection, notify, isTelegram, cloudStorage, telegramUser, isAppActive, onAppActiveChange,
-} from './tg.js?v=43edfa8d';
-import { createStore } from './progress/store.js?v=43edfa8d';
-import { createTracker } from './progress/tracker.js?v=43edfa8d';
-import { createProfileUi } from './profile-ui.js?v=43edfa8d';
-import { createForecasts } from './progress/forecast.js?v=43edfa8d';
-import { createTutorial } from './tutorial.js?v=43edfa8d';
-import { APP_VERSION, BUILD } from './version.js?v=43edfa8d';
-import { createCosmetics } from './wardrobe-ui.js?v=43edfa8d';
-import { createPvp } from './pvp/ui.js?v=43edfa8d';
-import { markerTopY } from './game/kid-art.js?v=43edfa8d';
-import { viewOf } from './cosmetics.js?v=43edfa8d';
-import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=43edfa8d';
+} from './tg.js?v=0d20a97d';
+import { createStore } from './progress/store.js?v=0d20a97d';
+import { createTracker } from './progress/tracker.js?v=0d20a97d';
+import { createProfileUi } from './profile-ui.js?v=0d20a97d';
+import { createForecasts } from './progress/forecast.js?v=0d20a97d';
+import { createTutorial } from './tutorial.js?v=0d20a97d';
+import { createFirstSteps } from './firststeps.js?v=0d20a97d';
+import { createHelpCards } from './help-cards.js?v=0d20a97d';
+import { createRulesSheet } from './rules-sheet.js?v=0d20a97d';
+import { APP_VERSION, BUILD } from './version.js?v=0d20a97d';
+import { createCosmetics } from './wardrobe-ui.js?v=0d20a97d';
+import { createPvp } from './pvp/ui.js?v=0d20a97d';
+import { markerTopY } from './game/kid-art.js?v=0d20a97d';
+import { viewOf } from './cosmetics.js?v=0d20a97d';
+import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=0d20a97d';
 
 // ---------- config ----------
 const params = new URLSearchParams(location.search);
@@ -104,6 +107,8 @@ const tracker = createTracker({
     onGuessResult: (won) => scene.reactMyKid(won),
   },
 });
+// v1.084: "First steps" onboarding quest (5 steps, +15 XP each, badge on completion).
+const firstSteps = createFirstSteps({ store, tracker, enabled: PROGRESS_ENABLED });
 const forecasts = createForecasts({
   store,
   tracker,
@@ -142,11 +147,24 @@ profileUi = createProfileUi({
   storageLabelKey: isTelegram && cloudStorage() ? 'prof.storeTg' : 'prof.storeLocal',
   userName: tgUser?.first_name ?? null,
   play,
+  firstSteps,
 });
 // v1.08: snowball duels vs bots (gamification/PVP-SPEC.md), full-screen overlay over the field.
-const pvp = createPvp({ store, tracker });
+const pvp = createPvp({ store, tracker, firstSteps });
 pvp.setEnabled(PROGRESS_ENABLED);
 window.__sb.pvp = pvp;
+firstSteps.setTargets({
+  side: () => profileUi.showSide(),
+  guess: () => profileUi.showGuessBar(),
+  forecast: () => profileUi.showForecastBar(),
+  duel: () => pvp.open(),
+  wardrobe: () => profileUi.showWardrobe(),
+});
+// help-cards.js scans for [data-help] buttons at construction, so it must come after the
+// wardrobe UI (built above by createProfileUi) which adds its own "?" button dynamically.
+const helpCards = createHelpCards();
+const rulesSheet = createRulesSheet();
+window.__sb.firstSteps = firstSteps;
 onAppActiveChange((active) => {
   appActive = active;
   if (!active) store.flush();
@@ -437,6 +455,7 @@ $('menu-help').addEventListener('click', () => {
 });
 setTimeout(() => tutorial.maybeShowFirstRun(), 600);
 window.__sb.tutorial = tutorial;
+$('menu-rules').addEventListener('click', () => { menu.close(); rulesSheet.open(); });
 setInterval(() => { if (document.documentElement.dataset.layout === 'wide' && !document.hidden) menu.render(); }, 1000);
 const renderVersion = () => { $('menu-version').textContent = t('set.version', { v: APP_VERSION, b: BUILD }); };
 renderVersion();
@@ -451,6 +470,9 @@ onLangChange(() => {
   profileUi.render();
   tutorial.relabel();
   pvp.relabel();
+  firstSteps.relabel();
+  helpCards.relabel();
+  rulesSheet.relabel();
 });
 window.addEventListener('pointerdown', unlockAudio, { passive: true });
 window.addEventListener('keydown', unlockAudio);
@@ -529,7 +551,7 @@ rafId = requestAnimationFrame(frame);
 // PvP determinism unit test (PVP-SPEC.md §9, §11 acceptance): same seed + input log replayed
 // twice on src/pvp/sim.js (no DOM) must produce the same outcome and HP both times.
 if (PVPTEST) {
-  import('./pvp/sim.js?v=43edfa8d').then((SIM) => {
+  import('./pvp/sim.js?v=0d20a97d').then((SIM) => {
     const cfg = {
       seed: 305441741, myPoints: [2, 1, 2, 0, 1], botTier: 'T3', botPersona: 'kirpich',
       botPoints: [1, 2, 1, 1, 0], y: { me: 220, op: 90 }, windSeries: [[0, 0.02], [300, -0.03], [600, 0.01]],

@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Press+Start+2P&family=Tiny5&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=43edfa8d">
+  <link rel="stylesheet" href="styles.css?v=0d20a97d">
 </head>
 <body>
   <div id="app" class="app">
@@ -60,6 +60,8 @@
       <div id="banner" class="banner" hidden aria-live="assertive">
         <div class="band"><div id="banner-title" class="banner-title"></div><div id="banner-sub" class="banner-sub"></div></div>
       </div>
+
+      <button id="fs-pill" class="fs-pill" type="button" hidden aria-haspopup="dialog"><span id="fs-pill-text"></span></button>
 
       <div id="side-prompt" class="panel side-prompt" hidden role="dialog" aria-labelledby="side-prompt-title">
         <div id="side-prompt-title" class="side-prompt-title" data-i18n="prof.sidePick"></div>
@@ -114,6 +116,7 @@
           <span id="guess-note" class="guess-note" data-i18n="guess.leaveNote"></span>
         </span>
         <span id="fc-bar-chips" class="fc-chips bar-chips" role="radiogroup" data-i18n-aria="fc.pickH" hidden></span>
+        <button class="help-q" type="button" data-help="forecast" data-i18n-aria="help.open">?</button>
       </div>
       <div id="fc-row2" class="g-row2" hidden>
         <span id="fc-status" class="fc-status read"><span class="l1"></span><span class="l2 num"></span></span>
@@ -124,7 +127,7 @@
       </div>
     </section>
     <section id="forecast-panel" class="panel forecast-panel" hidden>
-      <div class="ttl" data-i18n="fc.title"></div>
+      <div class="ttl fc-ttl-row"><span data-i18n="fc.title"></span><button class="help-q" type="button" data-help="forecast" data-i18n-aria="help.open">?</button></div>
       <div id="fc-chips" class="fc-chips" role="radiogroup" data-i18n-aria="fc.pickH"></div>
       <div id="fc-wide-status" class="fc-status read"><span class="l1"></span><span class="l2 num"></span></div>
       <div id="fc-wide-actions" class="fc-wide-actions">
@@ -178,6 +181,9 @@
         <button id="menu-lang" class="setting" type="button"><span data-i18n="menu.lang"></span><span class="state"></span></button>
         <button id="menu-help" class="setting setting-help" type="button" data-i18n-aria="tut.replay"><span aria-hidden="true">?</span></button>
       </div>
+      <div class="menu-settings">
+        <button id="menu-rules" class="setting" type="button"><span data-i18n="rules.open"></span></button>
+      </div>
       <div id="menu-version" class="menu-version num"></div>
     </div>
   </div>
@@ -187,7 +193,10 @@
     <div class="menu-backdrop"></div>
     <div class="panel menu-sheet profile-sheet" role="dialog" aria-modal="true" aria-labelledby="profile-title">
       <div class="menu-head">
-        <h2 id="profile-title" class="menu-title" data-i18n="prof.title"></h2>
+        <span class="menu-head-left">
+          <h2 id="profile-title" class="menu-title" data-i18n="prof.title"></h2>
+          <button class="help-q" type="button" data-help="profile" data-i18n-aria="help.open">?</button>
+        </span>
         <button id="profile-close" class="btn btn-icon" type="button" data-i18n-aria="menu.close">
           <svg viewBox="0 0 7 7" width="14" height="14" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></svg>
         </button>
@@ -239,6 +248,7 @@
 
     <!-- ENTRY -->
     <section id="pvp-entry" class="pvp-screen">
+      <div class="pvp-help-row"><button class="help-q" type="button" data-help="duel" data-i18n-aria="help.open">?</button></div>
       <div class="pvp-sec">
         <div class="panel pvp-panel pvp-league">
           <img id="pvp-league-icon" class="px-icon" alt="">
@@ -353,6 +363,51 @@
     </section>
   </div>
 
-  <script type="module" src="src/main.js?v=43edfa8d"></script>
+  <!-- "First steps" onboarding quest sheet (v1.084): 5 steps, opened from the HUD pill. -->
+  <div id="fs-sheet" class="menu fs-menu" hidden>
+    <div class="menu-backdrop"></div>
+    <div class="panel menu-sheet fs-panel" role="dialog" aria-modal="true" aria-labelledby="fs-sheet-title">
+      <div class="menu-head">
+        <h2 id="fs-sheet-title" class="menu-title" data-i18n="fs.title"></h2>
+        <button id="fs-sheet-close" class="btn btn-icon" type="button" data-i18n-aria="menu.close">
+          <svg viewBox="0 0 7 7" width="14" height="14" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></svg>
+        </button>
+      </div>
+      <div id="fs-sheet-body" class="fs-body read"></div>
+      <div class="fs-sheet-actions"><button id="fs-sheet-hide" class="btn" type="button" data-i18n="fs.hide"></button></div>
+    </div>
+  </div>
+
+  <!-- Contextual "?" help card (v1.084): one shared dialog for forecast/duel/wardrobe/profile. -->
+  <div id="help-card" class="menu help-menu" hidden>
+    <div class="menu-backdrop"></div>
+    <div class="panel menu-sheet help-panel" role="dialog" aria-modal="true" aria-labelledby="help-card-title">
+      <div class="menu-head">
+        <h2 id="help-card-title" class="menu-title"></h2>
+        <button id="help-card-close" class="btn btn-icon" type="button" data-i18n-aria="menu.close">
+          <svg viewBox="0 0 7 7" width="14" height="14" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></svg>
+        </button>
+      </div>
+      <div id="help-card-icons" class="help-card-icons"></div>
+      <div id="help-card-body" class="help-card-body read"></div>
+      <div id="help-card-example" class="help-card-example read"></div>
+    </div>
+  </div>
+
+  <!-- «Правила»: full rules screen with collapsible chapters + FAQ (v1.084). -->
+  <div id="rules-sheet" class="menu rules-menu" hidden>
+    <div class="menu-backdrop"></div>
+    <div class="panel menu-sheet rules-panel" role="dialog" aria-modal="true" aria-labelledby="rules-title">
+      <div class="menu-head">
+        <h2 id="rules-title" class="menu-title" data-i18n="rules.title"></h2>
+        <button id="rules-close" class="btn btn-icon" type="button" data-i18n-aria="menu.close">
+          <svg viewBox="0 0 7 7" width="14" height="14" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></svg>
+        </button>
+      </div>
+      <div id="rules-body" class="rules-body read"></div>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js?v=0d20a97d"></script>
 </body>
 </html>

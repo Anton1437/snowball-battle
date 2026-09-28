@@ -1,19 +1,19 @@
 // PvP duels UI (gamification/PVP-SPEC.md §11): entry / fight / result / stats screens over the
 // existing field canvas. DOM is built once in index.html and only mutated in place (HANDOFF.md
 // timers rule). Input is touch/pointer, no 300 ms delay (pointerdown/up, not click, drives throws).
-import { t } from '../i18n.js?v=43edfa8d';
+import { t } from '../i18n.js?v=0d20a97d';
 import {
   SPRITES, PALETTE, frames, drawSprite, spriteDataUrl,
-} from '../game/sprites-cache.js?v=43edfa8d';
-import { drawKidLook, drawYouMarker } from '../game/kid-art.js?v=43edfa8d';
-import { buildLook } from '../cosmetics.js?v=43edfa8d';
-import { levelOf } from '../progress/achievements.js?v=43edfa8d';
-import { utcDayOf } from '../progress/store.js?v=43edfa8d';
+} from '../game/sprites-cache.js?v=0d20a97d';
+import { drawKidLook, drawYouMarker } from '../game/kid-art.js?v=0d20a97d';
+import { buildLook } from '../cosmetics.js?v=0d20a97d';
+import { levelOf } from '../progress/achievements.js?v=0d20a97d';
+import { utcDayOf } from '../progress/store.js?v=0d20a97d';
 import {
   haptic, hapticSelection, notify, isAppActive, onAppActiveChange,
-} from '../tg.js?v=43edfa8d';
-import { play } from '../audio.js?v=43edfa8d';
-import * as SIM from './sim.js?v=43edfa8d';
+} from '../tg.js?v=0d20a97d';
+import { play } from '../audio.js?v=0d20a97d';
+import * as SIM from './sim.js?v=0d20a97d';
 
 const $ = (id) => document.getElementById(id);
 const ENERGY_MAX = 10;
@@ -33,7 +33,7 @@ const ACH_ICON = {
   pvp_legend: ['crown', 'green', 2],
 };
 
-export function createPvp({ store, tracker }) {
+export function createPvp({ store, tracker, firstSteps }) {
   const root = $('pvp');
   if (!root) return { open() {}, close() {}, isOpen: () => false, relabel() {}, setEnabled() {} };
   const el = {
@@ -538,6 +538,7 @@ export function createPvp({ store, tracker }) {
 
   // ---------- duel end: XP, rating, achievements, storage (PVP-SPEC.md §6.3, §10.1) ----------
   function onDuelEnd() {
+    firstSteps?.complete(3); // "play a duel" (practice counts too — checked before the early return)
     const r = match.result;
     const win = r.winner === 'me';
     const draw_ = r.winner === 'draw';

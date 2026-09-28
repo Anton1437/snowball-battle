@@ -2,12 +2,12 @@
 // sheet (bottom sheet on phone, centred modal on wide), wide side-panel sections, the
 // round-guess / time-forecast bar, the "backing today" prompt and a shared toast queue.
 // Styling per design/DESIGN.md §8 and §10; readable text uses the --font-read token.
-import { t, getLang, formatPrice } from './i18n.js?v=43edfa8d';
-import { spriteDataUrl, compositeDataUrl } from './game/sprites-cache.js?v=43edfa8d';
-import { ACHIEVEMENTS, RARITY_XP, levelOf } from './progress/achievements.js?v=43edfa8d';
-import { HORIZONS } from './progress/forecast.js?v=43edfa8d';
-import { backButton, hapticSelection, notify } from './tg.js?v=43edfa8d';
-import { createKidCard, createWardrobe, itemPreviewUrl } from './wardrobe-ui.js?v=43edfa8d';
+import { t, getLang, formatPrice } from './i18n.js?v=0d20a97d';
+import { spriteDataUrl, compositeDataUrl } from './game/sprites-cache.js?v=0d20a97d';
+import { ACHIEVEMENTS, RARITY_XP, levelOf } from './progress/achievements.js?v=0d20a97d';
+import { HORIZONS } from './progress/forecast.js?v=0d20a97d';
+import { backButton, hapticSelection, notify } from './tg.js?v=0d20a97d';
+import { createKidCard, createWardrobe, itemPreviewUrl } from './wardrobe-ui.js?v=0d20a97d';
 
 const TOAST_HOLD_MS = 2500;
 const TOAST_POP = [{ transform: 'scale(0.2)' }, { transform: 'scale(1)' }];
@@ -40,7 +40,7 @@ function fmtCountdown(ms) {
   return t('fc.hm', { h, m: String(m).padStart(2, '0') });
 }
 
-export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled, storageLabelKey, userName, play, onBarResize }) {
+export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled, storageLabelKey, userName, play, onBarResize, firstSteps }) {
   const el = {
     btn: $('btn-profile'),
     btnIcon: $('btn-profile-icon'),
@@ -114,16 +114,22 @@ export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled,
     if (tracker.pickSide(side)) {
       hapticSelection();
       cosmetics.refresh();
+      firstSteps?.complete(0);
       render();
     }
   };
+  const onWardrobeEquip = (hasItem) => {
+    hapticSelection();
+    if (hasItem) firstSteps?.complete(4);
+  };
   const sheetCard = createKidCard({ store, tracker, cosmetics, userName, onPickSide });
-  const sheetWardrobe = createWardrobe({ store, cosmetics, onEquip: () => hapticSelection() });
+  const sheetWardrobe = createWardrobe({ store, cosmetics, onEquip: onWardrobeEquip });
+  sheetWardrobe.el.id = 'sheet-wardrobe'; // scroll target for firstSteps' "Показать" (wardrobe step)
   const sheetRest = document.createElement('div');
   sheetRest.className = 'prof-rest';
   el.body.replaceChildren(sheetCard.el, sheetWardrobe.el, sheetRest);
   const panelCard = createKidCard({ store, tracker, cosmetics, userName, onPickSide });
-  const panelWardrobe = createWardrobe({ store, cosmetics, onEquip: () => hapticSelection() });
+  const panelWardrobe = createWardrobe({ store, cosmetics, onEquip: onWardrobeEquip });
   const panelRest = document.createElement('div');
   panelRest.className = 'prof-rest';
   el.panel.replaceChildren(panelCard.el, panelWardrobe.el, panelRest);
@@ -285,6 +291,7 @@ export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled,
     const b = e.target.closest('[data-side]');
     if (b && tracker.guess(b.dataset.side)) {
       hapticSelection();
+      firstSteps?.complete(1);
       renderGuess();
     }
   });
@@ -362,6 +369,7 @@ export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled,
   function openForecast(dir) {
     if (forecasts.open(horizon, dir)) {
       hapticSelection();
+      firstSteps?.complete(2);
       renderForecastControls();
       render();
     }
@@ -413,6 +421,7 @@ export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled,
     if (b.dataset.side !== 'later' && tracker.pickSide(b.dataset.side)) {
       hapticSelection();
       cosmetics.refresh(); // my kid moves to the backed team
+      firstSteps?.complete(0);
     }
     el.sidePrompt.hidden = true;
     render();
@@ -522,8 +531,35 @@ export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled,
     el.btn.hidden = true;
   }
 
+  // ---------- firstSteps "Показать" targets: jump to + briefly flash the relevant UI ----------
+  function flash(node) {
+    if (!node) return;
+    node.classList.remove('fs-flash');
+    void node.offsetWidth; // restart the animation
+    node.classList.add('fs-flash');
+  }
+  function showSide() {
+    open();
+    flash(sheetCard.el.querySelector('.side-pick, .try-seg'));
+  }
+  function showGuessBar() {
+    close();
+    if (mode === 'phone') setBarMode('round');
+    flash(el.guess);
+  }
+  function showForecastBar() {
+    close();
+    if (mode === 'phone') setBarMode('fc');
+    flash(mode === 'wide' ? el.fcPanel : el.guess);
+  }
+  function showWardrobe() {
+    open('sheet-wardrobe');
+    flash(sheetWardrobe.el);
+  }
+
   return {
     setLayout, render, toastUnlock, toastForecast, toastItem, showSidePrompt, renderGuess, open, close,
+    showSide, showGuessBar, showForecastBar, showWardrobe,
     get isOpen() { return isOpen(); },
   };
 }

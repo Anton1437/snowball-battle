@@ -1,9 +1,9 @@
 // First-launch tutorial: 3 pixel cards (field · predictions · side of the day), swipe or
 // Next, skippable, shown once (flag in localStorage + the progress profile so it also
 // follows the Telegram account). Replay from the settings sheet ("?").
-import { t } from './i18n.js?v=43edfa8d';
-import { spriteDataUrl } from './game/sprites-cache.js?v=43edfa8d';
-import { backButton } from './tg.js?v=43edfa8d';
+import { t } from './i18n.js?v=0d20a97d';
+import { spriteDataUrl } from './game/sprites-cache.js?v=0d20a97d';
+import { backButton } from './tg.js?v=0d20a97d';
 
 const SEEN_KEY = 'sb.tut.v1';
 const SWIPE_PX = 40;

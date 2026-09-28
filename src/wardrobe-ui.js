@@ -4,15 +4,15 @@
 //
 // Interactive elements are built ONCE and updated in place (never rebuilt on a timer — iOS
 // swallows taps on nodes replaced mid-gesture).
-import { t, getLang } from './i18n.js?v=43edfa8d';
-import { spriteDataUrl, makeCanvas, UI } from './game/sprites-cache.js?v=43edfa8d';
-import { ACHIEVEMENTS, levelOf } from './progress/achievements.js?v=43edfa8d';
+import { t, getLang } from './i18n.js?v=0d20a97d';
+import { spriteDataUrl, makeCanvas, UI } from './game/sprites-cache.js?v=0d20a97d';
+import { ACHIEVEMENTS, levelOf } from './progress/achievements.js?v=0d20a97d';
 import {
   ITEMS, SLOTS, SLOT_KEY, byId, isUnlocked, unlockedMask, buildLook, avatarViewOf, avatarSpriteName,
   trailColors, frameColors, LOOK_IDS, isLookUnlocked, lookReq, lookItemIds,
-} from './cosmetics.js?v=43edfa8d';
-import { drawKidLook } from './game/kid-art.js?v=43edfa8d';
-import * as ART from './sprites.js?v=43edfa8d';
+} from './cosmetics.js?v=0d20a97d';
+import { drawKidLook } from './game/kid-art.js?v=0d20a97d';
+import * as ART from './sprites.js?v=0d20a97d';
 
 // Avatar canvas (logical px): room for a crown above the hat, and (v1.08) for a pet standing
 // 12 px to the right of the kid's feet and a back item's hem below it.
@@ -404,7 +404,13 @@ function section(extraClass = '') {
 
 export function createWardrobe({ store, cosmetics, onEquip }) {
   const root = el('section', 'wardrobe read');
-  const head = el('h3', 'menu-sub');
+  const head = el('h3', 'menu-sub wr-head');
+  const headTitle = el('span');
+  const headHelp = el('button', 'help-q');
+  headHelp.type = 'button';
+  headHelp.dataset.help = 'wardrobe';
+  headHelp.textContent = '?';
+  head.append(headTitle, headHelp);
   root.append(head);
 
   // «Образы» / Looks: one tap equips a whole free bundle; premium looks are try-on only.
@@ -483,7 +489,7 @@ export function createWardrobe({ store, cosmetics, onEquip }) {
         statusText = `${name} · ${lookLockText(id)}`;
       } else if (isLookUnlocked(id, store.state)) {
         cosmetics.setPreview(null);
-        if (cosmetics.equipLook(id)) { onEquip?.(); statusText = t('wr.equipped', { name }); }
+        if (cosmetics.equipLook(id)) { onEquip?.(true); statusText = t('wr.equipped', { name }); }
       } else {
         cosmetics.setPreview(null);
         statusText = `${name} · ${lookLockText(id)}`;
@@ -498,7 +504,7 @@ export function createWardrobe({ store, cosmetics, onEquip }) {
     const name = it ? t(`item.${it.id}`) : t('wr.none');
     if (!it || isUnlocked(it, store.state)) {
       cosmetics.setPreview(null);
-      if (cosmetics.equip(slot, it ? it.id : null)) { onEquip?.(); statusText = t('wr.equipped', { name }); }
+      if (cosmetics.equip(slot, it ? it.id : null)) { onEquip?.(!!it); statusText = t('wr.equipped', { name }); }
     } else if (it.unlock.premium) {
       cosmetics.setPreview({ [SLOT_KEY[slot]]: it.id });
       statusText = `${name} · ${lockText(it)}`;
@@ -515,7 +521,8 @@ export function createWardrobe({ store, cosmetics, onEquip }) {
   function update() {
     const q = store.state;
     const team = cosmetics.tryTeam;
-    head.textContent = t('wr.title');
+    setText(headTitle, t('wr.title'));
+    headHelp.setAttribute('aria-label', t('help.open'));
     setText(looksSec.name, t('slot.looks'));
     looksItems.setAttribute('aria-label', t('slot.looks'));
     for (const { b, id } of lookButtons) {

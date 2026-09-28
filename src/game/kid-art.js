@@ -7,8 +7,8 @@
 // front-half ring/orbit → pet → marker (caller, drawYouMarker).
 import {
   SPRITES, PALETTE, frames, drawSprite,
-} from './sprites-cache.js?v=43edfa8d';
-import { hatPoint, bodyPoint } from '../cosmetics.js?v=43edfa8d';
+} from './sprites-cache.js?v=0d20a97d';
+import { hatPoint, bodyPoint } from '../cosmetics.js?v=0d20a97d';
 
 // Cached alpha masks (for the outline aura) keyed by the baked canvas itself.
 const maskCache = new WeakMap();

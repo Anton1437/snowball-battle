@@ -28,6 +28,10 @@ const emptyFh = () => Array.from({ length: HORIZON_COUNT }, () => [0, 0, 0, 0, 0
 //         (DESIGN.md §12) adds three more optional slot keys, still short catalog-id strings:
 //         p (pet), k (back item), u (aura), x (trim).
 //   seen: [notifiedMask, wardrobeViewedMask] over the append-only cosmetics catalog
+// v1.084 (optional field): fs = [stepMask, hidden] — the "First steps" onboarding quest
+//   (src/firststeps.js): bit i of stepMask is step i done; hidden is 1 once the pill was
+//   dismissed or all 5 steps are done. null until first initialised — an upgrading player's
+//   steps are inferred once from existing counters (no XP re-awarded, same as `seen` above).
 // v1.08 (PVP-SPEC.md §10.1, optional field):
 //   xd[5] = PvP XP for the day (xd now has 6 slots).
 //   pv: { s:[5 skill points], rs: UTC day of the last free respec, e:[energy, msOfLastRecalc],
@@ -61,6 +65,7 @@ export function defaultProfile(day, uid = null) {
     eq: {},
     seen: null, // null until first initialised (so upgrading users don't get a toast storm)
     pv: defaultPv(day),
+    fs: null,
   };
 }
 
@@ -87,6 +92,7 @@ function migrate(data, day, uid) {
       // xd grew a 6th slot (PvP daily XP) in v1.08; pad older profiles instead of truncating them.
       out.xd = Array.isArray(d.xd) ? [...d.xd.slice(0, 6), ...Array(Math.max(0, 6 - d.xd.length)).fill(0)] : base.xd;
       out.pv = d.pv && typeof d.pv === 'object' ? { ...base.pv, ...d.pv } : base.pv;
+      out.fs = Array.isArray(d.fs) && d.fs.length === 2 ? d.fs : null;
       return out;
     }
     default:
@@ -145,6 +151,11 @@ export function merge(local, cloud) {
     const a = local.seen || ['0', '0'];
     const b = cloud.seen || ['0', '0'];
     out.seen = [(BigInt(a[0] ?? 0) | BigInt(b[0] ?? 0)).toString(), (BigInt(a[1] ?? 0) | BigInt(b[1] ?? 0)).toString()];
+  }
+  if (local.fs || cloud.fs) {   // first-steps quest: mask by union, hidden by union (never re-show)
+    const a = local.fs || [0, 0];
+    const b = cloud.fs || [0, 0];
+    out.fs = [a[0] | b[0], Math.max(a[1], b[1])];
   }
   out.d0 = Math.min(local.d0 ?? Infinity, cloud.d0 ?? Infinity);
   out.rev = maxOf(local.rev, cloud.rev);
@@ -285,6 +296,17 @@ export function createStore({ uid = null, prefix = '', cloud = null, now = () =>
     get cloudWrites() { return cloudWrites; },
     keys: { CLOUD_KEY, LOCAL_KEY, LOCK_KEY },
     loadCloud,
+    // Merge in a copy from elsewhere (v1.1: the server's /api/progress) using the same rules as
+    // loadCloud()'s cloud merge. Marks dirty (re-persists locally + cloud) only if it changed.
+    importRemote(remote) {
+      if (!remote) return p;
+      const merged = merge(p, remote);
+      const changed = !same(merged, p);
+      p = merged;
+      writeLocal();
+      if (changed) markDirty(); else emit();
+      return p;
+    },
     markDirty,
     flush,
     onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
