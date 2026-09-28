@@ -88,6 +88,16 @@ async function handleUpdate(update, env) {
   if (!msg || !msg.chat || msg.chat.type !== 'private') return;
   const t = TEXT[pickLang(msg.from && msg.from.language_code)];
   const cmd = String(msg.text || '').split(/[\s@]/)[0];
+  if (cmd === '/admin') {
+    // Admin panel ships with the v1.1 server; until then just show the caller their own id
+    // (needed for the owner whitelist). Harmless for anyone else: it's their own id.
+    const ru = pickLang(msg.from && msg.from.language_code) === 'ru';
+    const id = msg.from ? msg.from.id : '?';
+    await tg(env, 'sendMessage', { chat_id: msg.chat.id, parse_mode: 'HTML',
+      text: ru ? `🛠 Админка появится вместе с сервером (v1.1).\nВаш Telegram ID: <code>${id}</code>`
+               : `🛠 The admin panel ships with the server (v1.1).\nYour Telegram ID: <code>${id}</code>` });
+    return;
+  }
   const text = cmd === '/start' ? t.start : (cmd === '/help' || cmd === '/rules') ? t.help : cmd === '/paysupport' ? t.paysupport : t.other;
   await tg(env, 'sendMessage', { chat_id: msg.chat.id, text, parse_mode: 'HTML', reply_markup: keyboard(t) });
 }
