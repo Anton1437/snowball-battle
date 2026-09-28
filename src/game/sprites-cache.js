@@ -1,6 +1,6 @@
 // Bakes sprite data (src/sprites.js) into cached offscreen canvases, one per (sprite, team, frame).
 // Team-swappable chars (H h S s) are replaced by TEAM_COLORS[team]; sprites without them are baked once.
-import { PALETTE, TEAM_COLORS, SPRITES, UI } from '../sprites.js?v=1c0f08fd';
+import { PALETTE, TEAM_COLORS, SPRITES, UI } from '../sprites.js?v=43edfa8d';
 
 const TEAM_RE = /[HhSs]/;
 const cache = new Map();

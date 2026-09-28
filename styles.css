@@ -628,6 +628,19 @@ button, .toggles { pointer-events: auto; }
 .seg-btn[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
 .wardrobe { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
 .wr-slot-name { font-size: 12px; font-weight: 600; color: var(--dim); margin-bottom: 3px; }
+/* Collapsible wardrobe sections (<details>): compact summary row, one open at a time. */
+details.wr-slot { border-bottom: 2px solid var(--border); }
+details.wr-slot > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+  min-height: 44px; margin: 0; padding: 6px 2px; color: var(--text); -webkit-tap-highlight-color: transparent;
+}
+details.wr-slot > summary::-webkit-details-marker { display: none; }
+details.wr-slot > summary .wr-sum-name { font-size: 14px; font-weight: 600; }
+details.wr-slot > summary .wr-sum-value { flex: 1; min-width: 0; font-size: 12px; font-weight: 400; color: var(--gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+details.wr-slot > summary .wr-sum-count { font-size: 12px; font-weight: 400; color: var(--dim); font-variant-numeric: tabular-nums; }
+details.wr-slot > summary .caret { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid var(--dim); transition: transform .12s steps(2); }
+details.wr-slot[open] > summary .caret { transform: rotate(180deg); }
+details.wr-slot[open] > .wr-items { padding-bottom: 10px; }
 .wr-items { display: flex; flex-wrap: wrap; gap: 4px; }
 .wr-item {
   width: 92px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 3px 2px 4px;

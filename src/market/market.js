@@ -28,13 +28,13 @@
 //   liquidation { exchange, side, liquidated, price, qty, usd, ts }   every liquidation, any size
 //
 // `side` always means which team the event helps: 'buy' → GREEN, 'sell' → RED.
-import { createEmitter } from './emitter.js?v=1c0f08fd';
-import { createFlow } from './flow.js?v=1c0f08fd';
-import { createSim } from './sim.js?v=1c0f08fd';
-import { connectBinance } from './binance.js?v=1c0f08fd';
-import { connectBybit, connectBybitLiquidations } from './bybit.js?v=1c0f08fd';
-import { connectCoinbase } from './coinbase.js?v=1c0f08fd';
-import { connectLiquidations } from './liquidations.js?v=1c0f08fd';
+import { createEmitter } from './emitter.js?v=43edfa8d';
+import { createFlow } from './flow.js?v=43edfa8d';
+import { createSim } from './sim.js?v=43edfa8d';
+import { connectBinance } from './binance.js?v=43edfa8d';
+import { connectBybit, connectBybitLiquidations } from './bybit.js?v=43edfa8d';
+import { connectCoinbase } from './coinbase.js?v=43edfa8d';
+import { connectLiquidations } from './liquidations.js?v=43edfa8d';
 
 export const TIERS = {
   bigTrade: 250_000,

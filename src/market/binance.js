@@ -1,6 +1,6 @@
 // Binance spot BTCUSDT: aggTrade + 24h ticker + depth20 (for buy/sell walls).
-import { createSocket } from './ws.js?v=1c0f08fd';
-import { createPrintMerger, stripKey } from './prints.js?v=1c0f08fd';
+import { createSocket } from './ws.js?v=43edfa8d';
+import { createPrintMerger, stripKey } from './prints.js?v=43edfa8d';
 
 const STREAMS = ['btcusdt@aggTrade', 'btcusdt@ticker', 'btcusdt@depth20@100ms'].join('/');
 const URLS = [

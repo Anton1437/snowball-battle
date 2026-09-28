@@ -1,19 +1,19 @@
 // PvP duels UI (gamification/PVP-SPEC.md §11): entry / fight / result / stats screens over the
 // existing field canvas. DOM is built once in index.html and only mutated in place (HANDOFF.md
 // timers rule). Input is touch/pointer, no 300 ms delay (pointerdown/up, not click, drives throws).
-import { t } from '../i18n.js?v=1c0f08fd';
+import { t } from '../i18n.js?v=43edfa8d';
 import {
   SPRITES, PALETTE, frames, drawSprite, spriteDataUrl,
-} from '../game/sprites-cache.js?v=1c0f08fd';
-import { drawKidLook, drawYouMarker } from '../game/kid-art.js?v=1c0f08fd';
-import { buildLook } from '../cosmetics.js?v=1c0f08fd';
-import { levelOf } from '../progress/achievements.js?v=1c0f08fd';
-import { utcDayOf } from '../progress/store.js?v=1c0f08fd';
+} from '../game/sprites-cache.js?v=43edfa8d';
+import { drawKidLook, drawYouMarker } from '../game/kid-art.js?v=43edfa8d';
+import { buildLook } from '../cosmetics.js?v=43edfa8d';
+import { levelOf } from '../progress/achievements.js?v=43edfa8d';
+import { utcDayOf } from '../progress/store.js?v=43edfa8d';
 import {
   haptic, hapticSelection, notify, isAppActive, onAppActiveChange,
-} from '../tg.js?v=1c0f08fd';
-import { play } from '../audio.js?v=1c0f08fd';
-import * as SIM from './sim.js?v=1c0f08fd';
+} from '../tg.js?v=43edfa8d';
+import { play } from '../audio.js?v=43edfa8d';
+import * as SIM from './sim.js?v=43edfa8d';
 
 const $ = (id) => document.getElementById(id);
 const ENERGY_MAX = 10;

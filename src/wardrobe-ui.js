@@ -4,15 +4,15 @@
 //
 // Interactive elements are built ONCE and updated in place (never rebuilt on a timer — iOS
 // swallows taps on nodes replaced mid-gesture).
-import { t, getLang } from './i18n.js?v=1c0f08fd';
-import { spriteDataUrl, makeCanvas, UI } from './game/sprites-cache.js?v=1c0f08fd';
-import { ACHIEVEMENTS, levelOf } from './progress/achievements.js?v=1c0f08fd';
+import { t, getLang } from './i18n.js?v=43edfa8d';
+import { spriteDataUrl, makeCanvas, UI } from './game/sprites-cache.js?v=43edfa8d';
+import { ACHIEVEMENTS, levelOf } from './progress/achievements.js?v=43edfa8d';
 import {
   ITEMS, SLOTS, SLOT_KEY, byId, isUnlocked, unlockedMask, buildLook, avatarViewOf, avatarSpriteName,
   trailColors, frameColors, LOOK_IDS, isLookUnlocked, lookReq, lookItemIds,
-} from './cosmetics.js?v=1c0f08fd';
-import { drawKidLook } from './game/kid-art.js?v=1c0f08fd';
-import * as ART from './sprites.js?v=1c0f08fd';
+} from './cosmetics.js?v=43edfa8d';
+import { drawKidLook } from './game/kid-art.js?v=43edfa8d';
+import * as ART from './sprites.js?v=43edfa8d';
 
 // Avatar canvas (logical px): room for a crown above the hat, and (v1.08) for a pet standing
 // 12 px to the right of the kid's feet and a back item's hem below it.
@@ -387,17 +387,32 @@ export function createKidCard({ store, tracker, cosmetics, userName, onPickSide 
 }
 
 // ---------- wardrobe ----------
+// Each slot is a <details> accordion: the summary shows the slot name, what's equipped and
+// how many items are unlocked, so the wardrobe stays short instead of one endless scroll.
+function section(extraClass = '') {
+  const box = el('details', `wr-slot ${extraClass}`.trim());
+  const label = el('summary', 'wr-slot-name');
+  const name = el('span', 'wr-sum-name');
+  const value = el('span', 'wr-sum-value');
+  const count = el('span', 'wr-sum-count');
+  const caret = el('i', 'caret');
+  caret.setAttribute('aria-hidden', 'true');
+  label.append(name, value, count, caret);
+  box.append(label);
+  return { box, name, value, count };
+}
+
 export function createWardrobe({ store, cosmetics, onEquip }) {
   const root = el('section', 'wardrobe read');
   const head = el('h3', 'menu-sub');
   root.append(head);
 
   // «Образы» / Looks: one tap equips a whole free bundle; premium looks are try-on only.
-  const looksBox = el('div', 'wr-slot wr-looks');
-  const looksLabel = el('div', 'wr-slot-name');
+  const looksSec = section('wr-looks');
+  const looksBox = looksSec.box;
   const looksItems = el('div', 'wr-items');
   looksItems.setAttribute('role', 'radiogroup');
-  looksBox.append(looksLabel, looksItems);
+  looksBox.append(looksItems);
   root.append(looksBox);
   const lookButtons = LOOK_IDS.map((id) => {
     const b = el('button', 'wr-item wr-look');
@@ -415,8 +430,8 @@ export function createWardrobe({ store, cosmetics, onEquip }) {
 
   const slotEls = {};
   for (const slot of SLOTS) {
-    const box = el('div', 'wr-slot');
-    const label = el('div', 'wr-slot-name');
+    const sec = section();
+    const box = sec.box;
     const items = el('div', 'wr-items');
     items.setAttribute('role', 'radiogroup');
     items.dataset.slot = slot;
@@ -439,15 +454,20 @@ export function createWardrobe({ store, cosmetics, onEquip }) {
       items.append(b);
       buttons.push({ b, it });
     }
-    box.append(label, items);
+    box.append(items);
     root.append(box);
-    slotEls[slot] = { label, items, buttons };
+    slotEls[slot] = { sec, items, buttons };
   }
   const status = el('div', 'wr-status');
   status.setAttribute('aria-live', 'polite');
   const shop = el('div', 'wr-shop');
   shop.setAttribute('aria-disabled', 'true');
   root.append(status, shop);
+
+  root.addEventListener('toggle', (e) => {
+    if (!e.target.open || !e.target.matches('details.wr-slot')) return;
+    for (const d of root.querySelectorAll('details.wr-slot[open]')) if (d !== e.target) d.open = false;
+  }, true);
 
   let statusText = ''; // '' = nothing tapped yet (show the hint)
   root.addEventListener('click', (e) => {
@@ -490,12 +510,13 @@ export function createWardrobe({ store, cosmetics, onEquip }) {
   });
 
   function itemName(it) { return it ? t(`item.${it.id}`) : t('wr.none'); }
+  function setText(node, text) { if (node.textContent !== text) node.textContent = text; }
 
   function update() {
     const q = store.state;
     const team = cosmetics.tryTeam;
     head.textContent = t('wr.title');
-    looksLabel.textContent = t('slot.looks');
+    setText(looksSec.name, t('slot.looks'));
     looksItems.setAttribute('aria-label', t('slot.looks'));
     for (const { b, id } of lookButtons) {
       const look = ART.LOOKS[id];
@@ -522,9 +543,15 @@ export function createWardrobe({ store, cosmetics, onEquip }) {
       const title = `${nm}${unlocked ? '' : ` · ${lookLockText(id)}`}`;
       if (b.title !== title) { b.title = title; b.setAttribute('aria-label', title); }
     }
+    const onLook = lookButtons.find(({ b }) => b.classList.contains('on'));
+    setText(looksSec.value, onLook ? onLook.b.querySelector('.wr-name').textContent : '');
+    setText(looksSec.count, `${lookButtons.filter(({ b }) => !b.classList.contains('locked')).length}/${lookButtons.length}`);
     for (const slot of SLOTS) {
-      const { label, items, buttons } = slotEls[slot];
-      label.textContent = t(`slot.${slot}`);
+      const { sec, items, buttons } = slotEls[slot];
+      setText(sec.name, t(`slot.${slot}`));
+      const eqId = q.eq?.[SLOT_KEY[slot]] || '';
+      setText(sec.value, itemName(byId[eqId] || null));
+      setText(sec.count, `${buttons.filter(({ it }) => it && isUnlocked(it, q)).length}/${buttons.length - 1}`);
       items.setAttribute('aria-label', t(`slot.${slot}`));
       const equipped = q.eq?.[SLOT_KEY[slot]] || '';
       const previewedId = cosmetics.preview?.eq?.[SLOT_KEY[slot]];

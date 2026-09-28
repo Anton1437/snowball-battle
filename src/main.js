@@ -5,28 +5,28 @@
 //             ?feeds=binance,bybit,coinbase,liquidations  only open these sockets (fallback testing)
 //             ?delay=binance:5000  open a venue's socket late (tests late joiners in AGG)
 //             ?progtest=1  allow progress tracking with test params; uses test_-prefixed storage keys
-import { createMarket, SOURCES } from './market/market.js?v=1c0f08fd';
-import { createSourceMenu } from './source-menu.js?v=1c0f08fd';
-import { createRound } from './game/round.js?v=1c0f08fd';
-import { createScene, W } from './game/scene.js?v=1c0f08fd';
-import { createRenderer, fitCanvas } from './game/renderer.js?v=1c0f08fd';
-import { preloadAll } from './game/sprites-cache.js?v=1c0f08fd';
-import { createHud } from './hud.js?v=1c0f08fd';
-import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=1c0f08fd';
+import { createMarket, SOURCES } from './market/market.js?v=43edfa8d';
+import { createSourceMenu } from './source-menu.js?v=43edfa8d';
+import { createRound } from './game/round.js?v=43edfa8d';
+import { createScene, W } from './game/scene.js?v=43edfa8d';
+import { createRenderer, fitCanvas } from './game/renderer.js?v=43edfa8d';
+import { preloadAll } from './game/sprites-cache.js?v=43edfa8d';
+import { createHud } from './hud.js?v=43edfa8d';
+import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=43edfa8d';
 import {
   initTelegram, haptic, hapticSelection, notify, isTelegram, cloudStorage, telegramUser, isAppActive, onAppActiveChange,
-} from './tg.js?v=1c0f08fd';
-import { createStore } from './progress/store.js?v=1c0f08fd';
-import { createTracker } from './progress/tracker.js?v=1c0f08fd';
-import { createProfileUi } from './profile-ui.js?v=1c0f08fd';
-import { createForecasts } from './progress/forecast.js?v=1c0f08fd';
-import { createTutorial } from './tutorial.js?v=1c0f08fd';
-import { APP_VERSION, BUILD } from './version.js?v=1c0f08fd';
-import { createCosmetics } from './wardrobe-ui.js?v=1c0f08fd';
-import { createPvp } from './pvp/ui.js?v=1c0f08fd';
-import { markerTopY } from './game/kid-art.js?v=1c0f08fd';
-import { viewOf } from './cosmetics.js?v=1c0f08fd';
-import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=1c0f08fd';
+} from './tg.js?v=43edfa8d';
+import { createStore } from './progress/store.js?v=43edfa8d';
+import { createTracker } from './progress/tracker.js?v=43edfa8d';
+import { createProfileUi } from './profile-ui.js?v=43edfa8d';
+import { createForecasts } from './progress/forecast.js?v=43edfa8d';
+import { createTutorial } from './tutorial.js?v=43edfa8d';
+import { APP_VERSION, BUILD } from './version.js?v=43edfa8d';
+import { createCosmetics } from './wardrobe-ui.js?v=43edfa8d';
+import { createPvp } from './pvp/ui.js?v=43edfa8d';
+import { markerTopY } from './game/kid-art.js?v=43edfa8d';
+import { viewOf } from './cosmetics.js?v=43edfa8d';
+import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=43edfa8d';
 
 // ---------- config ----------
 const params = new URLSearchParams(location.search);
@@ -529,7 +529,7 @@ rafId = requestAnimationFrame(frame);
 // PvP determinism unit test (PVP-SPEC.md §9, §11 acceptance): same seed + input log replayed
 // twice on src/pvp/sim.js (no DOM) must produce the same outcome and HP both times.
 if (PVPTEST) {
-  import('./pvp/sim.js?v=1c0f08fd').then((SIM) => {
+  import('./pvp/sim.js?v=43edfa8d').then((SIM) => {
     const cfg = {
       seed: 305441741, myPoints: [2, 1, 2, 0, 1], botTier: 'T3', botPersona: 'kirpich',
       botPoints: [1, 2, 1, 1, 0], y: { me: 220, op: 90 }, windSeries: [[0, 0.02], [300, -0.03], [600, 0.01]],
