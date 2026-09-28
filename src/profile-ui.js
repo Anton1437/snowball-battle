@@ -2,12 +2,12 @@
 // sheet (bottom sheet on phone, centred modal on wide), wide side-panel sections, the
 // round-guess / time-forecast bar, the "backing today" prompt and a shared toast queue.
 // Styling per design/DESIGN.md §8 and §10; readable text uses the --font-read token.
-import { t, getLang, formatPrice } from './i18n.js?v=6ee7c4dd';
-import { spriteDataUrl, compositeDataUrl } from './game/sprites-cache.js?v=6ee7c4dd';
-import { ACHIEVEMENTS, RARITY_XP, levelOf } from './progress/achievements.js?v=6ee7c4dd';
-import { HORIZONS } from './progress/forecast.js?v=6ee7c4dd';
-import { backButton, hapticSelection, notify } from './tg.js?v=6ee7c4dd';
-import { createKidCard, createWardrobe, itemPreviewUrl } from './wardrobe-ui.js?v=6ee7c4dd';
+import { t, getLang, formatPrice } from './i18n.js?v=a191950d';
+import { spriteDataUrl, compositeDataUrl } from './game/sprites-cache.js?v=a191950d';
+import { ACHIEVEMENTS, RARITY_XP, levelOf } from './progress/achievements.js?v=a191950d';
+import { HORIZONS } from './progress/forecast.js?v=a191950d';
+import { backButton, hapticSelection, notify } from './tg.js?v=a191950d';
+import { createKidCard, createWardrobe, itemPreviewUrl } from './wardrobe-ui.js?v=a191950d';
 
 const TOAST_HOLD_MS = 2500;
 const TOAST_POP = [{ transform: 'scale(0.2)' }, { transform: 'scale(1)' }];
@@ -40,7 +40,7 @@ function fmtCountdown(ms) {
   return t('fc.hm', { h, m: String(m).padStart(2, '0') });
 }
 
-export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled, storageLabelKey, userName, play }) {
+export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled, storageLabelKey, userName, play, onBarResize }) {
   const el = {
     btn: $('btn-profile'),
     btnIcon: $('btn-profile-icon'),
@@ -53,11 +53,11 @@ export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled,
     roundPart: $('guess-round'),
     guessLabel: $('guess-label'),
     guessActions: $('guess-actions'),
-    fcPart: $('guess-fc'),
-    fcPick: $('fc-pick'),
-    fcPicker: $('fc-picker'),
+    fcBarChips: $('fc-bar-chips'),
+    fcRow2: $('fc-row2'),
+    fcStatus: $('fc-status'),
+    fcWideStatus: $('fc-wide-status'),
     fcActions: $('fc-actions'),
-    fcCount: $('fc-count'),
     fcPanel: $('forecast-panel'),
     fcChips: $('fc-chips'),
     fcWideActions: $('fc-wide-actions'),
@@ -139,15 +139,26 @@ export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled,
       ${cell('prof.statFc', `${fcWon}/${fcMade}`)}${cell('prof.statGiants', q.gi)}</div>`;
   }
 
+  const hhmm = (ms) => new Date(ms).toLocaleTimeString(getLang(), { hour: '2-digit', minute: '2-digit' });
+  const candleRange = (h, t0, t1) => (HORIZONS[h].id === '1d'
+    ? new Date(t0).toLocaleDateString(getLang(), { day: 'numeric', month: 'short' })
+    : `${hhmm(t0)}–${hhmm(t1)}`);
+
   function fcRowsHtml(rows) {
     if (!rows.length) return `<div class="fc-empty">${t('fc.none')}</div>`;
-    return rows.map((r) => `<div class="fc-row ${r.winning === true ? 'win' : r.winning === false ? 'lose' : ''}">
+    return rows.map((r) => {
+      const when = r.kind === 'candle' ? candleRange(r.h, r.t0, r.t1) : '';
+      const timer = r.state === 'resolving' ? t('fc.resolving')
+        : r.state === 'queued' ? t('fc.startsIn', { t: fmtCountdown(r.remainingMs) }) : t('fc.endsIn', { t: fmtCountdown(r.remainingMs) });
+      const mark = r.winning === true ? '✓' : r.winning === false ? '✗' : '·';
+      return `<div class="fc-row ${r.winning === true ? 'win' : r.winning === false ? 'lose' : ''} ${r.state}">
         <span class="fc-h">${horizonLabel(r.h)}</span>
         <span class="fc-dir ${r.dir}"><i class="tri ${r.dir === 'u' ? 'up' : 'down'}" aria-hidden="true"></i>${t(r.dir === 'u' ? 'fc.up' : 'fc.down')}</span>
-        <span class="fc-entry num">$${formatPrice(r.entry)}</span>
-        <span class="fc-time num">${r.pending ? t('fc.resolving') : fmtCountdown(r.remainingMs)}</span>
-        <span class="fc-mark" aria-label="${r.winning === true ? t('fc.winning') : r.winning === false ? t('fc.losing') : ''}">${r.winning === true ? '✓' : r.winning === false ? '✗' : '·'}</span>
-      </div>`).join('');
+        <span class="fc-when num">${when}${r.open > 0 ? ` · $${formatPrice(r.open)}` : ''}</span>
+        <span class="fc-time num">${timer}</span>
+        <span class="fc-mark" aria-label="${r.winning === true ? t('fc.winning') : r.winning === false ? t('fc.losing') : ''}">${mark}</span>
+      </div>`;
+    }).join('');
   }
 
   function fcStatsHtml() {
@@ -229,8 +240,7 @@ export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled,
   $('profile-close').addEventListener('click', close);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (!el.fcPicker.hidden) el.fcPicker.hidden = true;
-    else if (isOpen()) close();
+    if (isOpen()) close();
   });
 
   // ---------- wide side-panel section ----------
@@ -279,8 +289,8 @@ export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled,
     }
   });
 
-  // ---------- time forecasts ----------
-  // Chips are created once and then updated in place: this runs on the 200 ms UI refresh, and
+  // ---------- candle forecasts ----------
+  // Chips are created once and then updated in place: this runs on the 250 ms UI refresh, and
   // replacing the buttons between pointerdown and pointerup swallows the tap (always on iOS).
   function renderChips(container) {
     if (container.children.length !== HORIZONS.length) {
@@ -295,43 +305,54 @@ export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled,
       b.classList.toggle('on', h === horizon);
       b.classList.toggle('busy', busy);
       b.setAttribute('aria-checked', String(h === horizon));
-      b.title = busy ? t('fc.busy') : '';
     }
+  }
+
+  // «Свеча 5м 12:05–12:10» / «приём ещё 0:43» (or «ты за ЗЕЛЁНУЮ · старт через 0:43»)
+  function statusLines() {
+    if (!tracker.live) return [t('guess.demo'), ''];
+    if (!forecasts.clockKnown) return [t('fc.waitClock'), ''];
+    const st = forecasts.slot(horizon);
+    const l1 = t('fc.candle', { h: horizonLabel(horizon), range: candleRange(horizon, st.t0, st.t1) });
+    const cd = fmtCountdown(st.entryLeftMs);
+    if (st.queued) {
+      return [l1, `${t('fc.yourPick', { side: t(st.queued === 'u' ? 'fc.upAcc' : 'fc.downAcc') })} · ${t('fc.startsIn', { t: cd })}`];
+    }
+    return [l1, t('fc.entryLeft', { t: cd })];
+  }
+
+  function setStatus(box, [a, b]) {
+    const l1 = box.firstElementChild;
+    const l2 = box.lastElementChild;
+    if (l1.textContent !== a) l1.textContent = a;
+    if (l2.textContent !== b) l2.textContent = b;
   }
 
   function renderForecastControls() {
     if (!enabled) return;
-    const rows = forecasts.list();
     const can = forecasts.canOpen(horizon);
-    const busy = forecasts.isActive(horizon);
-    const live = tracker.live;
-    // phone bar
-    const pickHtml = `${horizonLabel(horizon)}<i class="caret" aria-hidden="true"></i>`;
-    if (el.fcPick.dataset.h !== String(horizon) || el.fcPick.dataset.lang !== t('fc.pickH')) {
-      el.fcPick.innerHTML = pickHtml;
-      el.fcPick.dataset.h = String(horizon);
-      el.fcPick.dataset.lang = t('fc.pickH');
-    }
-    el.fcPick.setAttribute('aria-label', `${t('fc.pickH')}: ${horizonLabel(horizon)}`);
-    el.fcCount.textContent = rows.length ? t('fc.active', { n: rows.length }) : '';
-    el.fcCount.hidden = !rows.length;
+    const lines = statusLines();
     for (const b of [...el.fcActions.querySelectorAll('button'), ...el.fcWideActions.querySelectorAll('button')]) b.disabled = !can;
-    el.fcPart.title = !live ? t('guess.demo') : busy ? t('fc.busy') : t('fc.ask', { h: horizonLabel(horizon) });
-    el.fcPart.dataset.state = !live ? 'demo' : busy ? 'busy' : 'open';
-    if (!el.fcPicker.hidden) renderChips(el.fcPicker);
-    // wide section
+    const q = t('fc.q', { h: horizonLabel(horizon) });
+    el.fcActions.title = q;
+    el.fcActions.setAttribute('aria-label', q);
+    if (mode === 'phone' && barMode === 'fc') {
+      renderChips(el.fcBarChips);
+      setStatus(el.fcStatus, lines);
+    }
     if (mode === 'wide') {
       renderChips(el.fcChips);
-      $('fc-wide-hint').textContent = !live ? t('guess.demo') : busy ? t('fc.busy') : t('fc.ask', { h: horizonLabel(horizon) });
-      el.fcList.innerHTML = fcRowsHtml(rows);
+      setStatus(el.fcWideStatus, lines);
+      el.fcList.innerHTML = fcRowsHtml(forecasts.list());
     }
     if (isOpen()) {
       const list = el.body.querySelector('.fc-list');
-      if (list) list.innerHTML = fcRowsHtml(rows);
+      if (list) list.innerHTML = fcRowsHtml(forecasts.list());
     }
   }
 
   function pickHorizon(h) {
+    if (h === horizon) return;
     horizon = h;
     writeLs(HORIZON_KEY, String(h));
     hapticSelection();
@@ -352,27 +373,18 @@ export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled,
   };
   el.fcActions.addEventListener('click', onDirClick);
   el.fcWideActions.addEventListener('click', onDirClick);
-  el.fcPick.addEventListener('click', () => {
-    el.fcPicker.hidden = !el.fcPicker.hidden;
-    el.fcPick.setAttribute('aria-expanded', String(!el.fcPicker.hidden));
-    if (!el.fcPicker.hidden) renderChips(el.fcPicker);
-  });
-  el.fcPicker.addEventListener('click', (e) => {
-    const c = e.target.closest('[data-h]');
-    if (!c) return;
-    pickHorizon(Number(c.dataset.h));
-    el.fcPicker.hidden = true;
-  });
-  el.fcChips.addEventListener('click', (e) => {
+  const onChipClick = (e) => {
     const c = e.target.closest('[data-h]');
     if (c) pickHorizon(Number(c.dataset.h));
-  });
-  el.fcCount.addEventListener('click', () => open('prof-fc'));
+  };
+  el.fcBarChips.addEventListener('click', onChipClick);
+  el.fcChips.addEventListener('click', onChipClick);
 
   function setBarMode(m) {
     barMode = m;
     writeLs(BAR_MODE_KEY, m);
     renderGuess();
+    onBarResize?.(); // the bar height changes → re-measure the HUD insets
   }
   el.guessMode.addEventListener('click', () => setBarMode(barMode === 'round' ? 'fc' : 'round'));
 
@@ -381,9 +393,11 @@ export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled,
     if (!enabled) return;
     const showFc = mode === 'phone' && barMode === 'fc';
     el.roundPart.hidden = showFc;
-    el.fcPart.hidden = !showFc;
-    if (!showFc) el.fcPicker.hidden = true;
-    el.guessMode.textContent = t(barMode === 'round' ? 'bar.round' : 'bar.time');
+    el.fcBarChips.hidden = !showFc;
+    el.fcRow2.hidden = !showFc;
+    el.guess.classList.toggle('fc-mode', showFc);
+    const mt = t(barMode === 'round' ? 'bar.round' : 'bar.time');
+    if (el.guessMode.textContent !== mt) el.guessMode.textContent = mt;
     el.guessMode.setAttribute('aria-label', t('bar.switch'));
     renderForecastControls();
   }

@@ -410,7 +410,9 @@ button, .toggles { pointer-events: auto; }
 .gbtn:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
 
 /* guess bar: phone = one compact row (≤ 28 px) above the feed; wide = side-panel section */
-.guess { display: flex; align-items: center; gap: 6px; pointer-events: auto; }
+.guess { display: flex; flex-direction: column; gap: 4px; pointer-events: auto; }
+.g-row1, .g-row2 { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.g-row2[hidden] { display: none; }
 .guess[hidden] { display: none; }
 .guess-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .guess-part { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
@@ -431,8 +433,18 @@ button, .toggles { pointer-events: auto; }
 .guess[data-side="r"] .guess-label { color: var(--down); }
 .guess-note { display: none; }
 .hud-bottom { flex-direction: column; align-items: stretch; }
-.hud-bottom .guess { height: 28px; padding: 0 6px; }
-.hud-bottom .guess .gbtn { min-height: 20px; padding: 0 6px; font-size: 16px; }
+.hud-bottom .guess { padding: 3px 6px; }
+/* tap targets ≥ 36 px in the phone bar (round buttons, horizon chips, candle buttons) */
+.hud-bottom .guess .gbtn { min-height: 36px; padding: 0 8px; font-size: 16px; }
+.hud-bottom .mode-btn { min-height: 36px; }
+.bar-chips { display: flex; flex: 1; gap: 3px; min-width: 0; }
+.bar-chips[hidden] { display: none; }
+.bar-chips .chip { flex: 1; min-width: 0; min-height: 36px; padding: 0 2px; }
+.fc-status { display: flex; flex-direction: column; justify-content: center; flex: 1; min-width: 0; font-size: 12px; line-height: 1.25; }
+.fc-status .l1 { color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc-status .l2 { color: var(--gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.forecast-panel .fc-status { margin-bottom: 6px; }
+.menu-version { margin-top: 10px; font-size: 12px; color: var(--dim); text-align: right; font-family: var(--font-read); }
 .side .guess { flex-wrap: wrap; }
 .side .guess .guess-label { flex-basis: 100%; }
 .side .guess .guess-note { display: block; flex-basis: 100%; color: var(--dim); }
@@ -446,17 +458,7 @@ button, .toggles { pointer-events: auto; }
 }
 .chip.on { border-color: var(--gold); color: var(--gold); }
 .chip.busy { color: var(--dim); }
-.chip.pick { display: inline-flex; align-items: center; gap: 4px; min-height: 20px; }
 .chip .caret, .chip.pick .caret { width: 0; height: 0; border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 4px solid currentColor; }
-.fc-part { justify-content: flex-start; }
-.fc-part[data-state="demo"] .guess-actions, .fc-part[data-state="busy"] .guess-actions { opacity: 0.5; }
-.fc-count { flex: none; margin-left: auto; font: 8px/1 var(--display); color: var(--gold); background: none; border: 0; padding: 4px 2px; cursor: pointer; }
-.fc-count[hidden] { display: none; }
-.fc-picker {
-  position: absolute; left: 0; bottom: calc(100% + 4px); display: flex; flex-wrap: wrap; gap: 4px;
-  padding: 6px; z-index: 7; background: var(--panel);
-}
-.fc-picker[hidden] { display: none; }
 .forecast-panel .fc-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
 .fc-wide-actions { display: flex; gap: 6px; margin-bottom: 6px; }
 .fc-wide-actions .gbtn { flex: 1; }

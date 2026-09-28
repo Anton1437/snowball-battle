@@ -9,7 +9,8 @@ deploy a client could mix old and new modules. Run this right before committing 
     python3 tools/release.py --check    # exit 1 if anything would change (CI / pre-push)
 
 It rewrites  from './x.js'  /  import './x.js'  /  import('./x.js')  in src/**/*.js to
-'./x.js?v=VERSION' and stamps  src/main.js  and  styles.css  in index.html. Idempotent: an
+'./x.js?v=VERSION', stamps  src/main.js  and  styles.css  in index.html, and writes the build id
+into  export const BUILD = '…'  in src/version.js (settings footer). Idempotent: an
 existing ?v= is replaced. Local dev works without it (unstamped imports are fine).
 Stdlib only.
 """
@@ -26,6 +27,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 IMPORT_RE = re.compile(
     r"""(?P<head>\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)(?P<q>['"])(?P<path>\.{1,2}/[^'"?#]+?\.js)(?:\?v=[^'"#]*)?(?P=q)"""
 )
+# const BUILD = '…' in src/version.js (shown in the settings footer)
+BUILD_RE = re.compile(r"""(?P<head>export const BUILD = )(?P<q>['"])(?P<path>)[^'"]*(?P=q)""")
 HTML_RE = re.compile(
     r"""(?P<head>\b(?:src|href)=)(?P<q>['"])(?P<path>(?:src/main\.js|styles\.css))(?:\?v=[^'"#]*)?(?P=q)"""
 )
@@ -42,6 +45,8 @@ def git_version():
 
 
 def stamp(text, pattern, version):
+    if pattern is BUILD_RE:
+        return pattern.sub(lambda m: f"{m['head']}{m['q']}{version}{m['q']}", text)
     return pattern.sub(lambda m: f"{m['head']}{m['q']}{m['path']}?v={version}{m['q']}", text)
 
 
@@ -56,6 +61,7 @@ def main():
 
     targets = [(p, IMPORT_RE) for p in sorted((ROOT / 'src').rglob('*.js'))]
     targets.append((ROOT / 'index.html', HTML_RE))
+    targets.append((ROOT / 'src' / 'version.js', BUILD_RE))
     changed = []
     for path, pattern in targets:
         old = path.read_text(encoding='utf-8')

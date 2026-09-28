@@ -4,13 +4,13 @@
 //
 // Interactive elements are built ONCE and updated in place (never rebuilt on a timer — iOS
 // swallows taps on nodes replaced mid-gesture).
-import { t } from './i18n.js?v=6ee7c4dd';
-import { spriteDataUrl, makeCanvas, UI } from './game/sprites-cache.js?v=6ee7c4dd';
-import { ACHIEVEMENTS, levelOf } from './progress/achievements.js?v=6ee7c4dd';
+import { t } from './i18n.js?v=a191950d';
+import { spriteDataUrl, makeCanvas, UI } from './game/sprites-cache.js?v=a191950d';
+import { ACHIEVEMENTS, levelOf } from './progress/achievements.js?v=a191950d';
 import {
   ITEMS, SLOTS, SLOT_KEY, byId, isUnlocked, unlockedMask, buildLook, viewOf, trailColors, frameColors,
-} from './cosmetics.js?v=6ee7c4dd';
-import { drawKidLook } from './game/kid-art.js?v=6ee7c4dd';
+} from './cosmetics.js?v=a191950d';
+import { drawKidLook } from './game/kid-art.js?v=a191950d';
 
 const AV_W = 20;            // avatar canvas (logical px): room for a crown above the hat
 const AV_H = 26;

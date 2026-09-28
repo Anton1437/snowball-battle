@@ -5,26 +5,27 @@
 //             ?feeds=binance,bybit,coinbase,liquidations  only open these sockets (fallback testing)
 //             ?delay=binance:5000  open a venue's socket late (tests late joiners in AGG)
 //             ?progtest=1  allow progress tracking with test params; uses test_-prefixed storage keys
-import { createMarket, SOURCES } from './market/market.js?v=6ee7c4dd';
-import { createSourceMenu } from './source-menu.js?v=6ee7c4dd';
-import { createRound } from './game/round.js?v=6ee7c4dd';
-import { createScene, W } from './game/scene.js?v=6ee7c4dd';
-import { createRenderer, fitCanvas } from './game/renderer.js?v=6ee7c4dd';
-import { preloadAll } from './game/sprites-cache.js?v=6ee7c4dd';
-import { createHud } from './hud.js?v=6ee7c4dd';
-import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=6ee7c4dd';
+import { createMarket, SOURCES } from './market/market.js?v=a191950d';
+import { createSourceMenu } from './source-menu.js?v=a191950d';
+import { createRound } from './game/round.js?v=a191950d';
+import { createScene, W } from './game/scene.js?v=a191950d';
+import { createRenderer, fitCanvas } from './game/renderer.js?v=a191950d';
+import { preloadAll } from './game/sprites-cache.js?v=a191950d';
+import { createHud } from './hud.js?v=a191950d';
+import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=a191950d';
 import {
   initTelegram, haptic, hapticSelection, notify, isTelegram, cloudStorage, telegramUser, isAppActive, onAppActiveChange,
-} from './tg.js?v=6ee7c4dd';
-import { createStore } from './progress/store.js?v=6ee7c4dd';
-import { createTracker } from './progress/tracker.js?v=6ee7c4dd';
-import { createProfileUi } from './profile-ui.js?v=6ee7c4dd';
-import { createForecasts } from './progress/forecast.js?v=6ee7c4dd';
-import { createTutorial } from './tutorial.js?v=6ee7c4dd';
-import { createCosmetics } from './wardrobe-ui.js?v=6ee7c4dd';
-import { markerTopY } from './game/kid-art.js?v=6ee7c4dd';
-import { viewOf } from './cosmetics.js?v=6ee7c4dd';
-import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=6ee7c4dd';
+} from './tg.js?v=a191950d';
+import { createStore } from './progress/store.js?v=a191950d';
+import { createTracker } from './progress/tracker.js?v=a191950d';
+import { createProfileUi } from './profile-ui.js?v=a191950d';
+import { createForecasts } from './progress/forecast.js?v=a191950d';
+import { createTutorial } from './tutorial.js?v=a191950d';
+import { APP_VERSION, BUILD } from './version.js?v=a191950d';
+import { createCosmetics } from './wardrobe-ui.js?v=a191950d';
+import { markerTopY } from './game/kid-art.js?v=a191950d';
+import { viewOf } from './cosmetics.js?v=a191950d';
+import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=a191950d';
 
 // ---------- config ----------
 const params = new URLSearchParams(location.search);
@@ -130,6 +131,7 @@ const cosmetics = createCosmetics({
   toast: (item) => profileUi?.toastItem(item),
 });
 profileUi = createProfileUi({
+  onBarResize: () => queueLayout(),
   store,
   tracker,
   forecasts,
@@ -429,7 +431,11 @@ $('menu-help').addEventListener('click', () => {
 setTimeout(() => tutorial.maybeShowFirstRun(), 600);
 window.__sb.tutorial = tutorial;
 setInterval(() => { if (document.documentElement.dataset.layout === 'wide' && !document.hidden) menu.render(); }, 1000);
+const renderVersion = () => { $('menu-version').textContent = t('set.version', { v: APP_VERSION, b: BUILD }); };
+renderVersion();
+window.__sb.version = { APP_VERSION, BUILD };
 onLangChange(() => {
+  renderVersion();
   tagEl.textContent = nickText();
   applyDom();
   hud.renderLang();

@@ -1,10 +1,10 @@
 // Canvas renderer for the scene at logical resolution 192 × H (DESIGN.md §4–§6, §9).
 // Layers: ground → front line → y-sorted actors/props → balls → FX  (all shaken)
 //         → price axis → snowflakes (not shaken). The DOM HUD sits on top.
-import { SPRITES, PALETTE, UI, drawSprite, frames, loopFrame, makeCanvas, miniText, miniTextWidth } from './sprites-cache.js?v=6ee7c4dd';
-import { W, AXIS_X, FIELD_W } from './scene.js?v=6ee7c4dd';
-import { axisLevels, signLabel } from './round.js?v=6ee7c4dd';
-import { drawKidLook, drawYouMarker } from './kid-art.js?v=6ee7c4dd';
+import { SPRITES, PALETTE, UI, drawSprite, frames, loopFrame, makeCanvas, miniText, miniTextWidth } from './sprites-cache.js?v=a191950d';
+import { W, AXIS_X, FIELD_W } from './scene.js?v=a191950d';
+import { axisLevels, signLabel } from './round.js?v=a191950d';
+import { drawKidLook, drawYouMarker } from './kid-art.js?v=a191950d';
 
 const H_MIN = 256;
 const H_MAX = 420;
@@ -323,7 +323,7 @@ export function createRenderer(canvas, scene) {
 
   // Active time forecasts: dotted line at each entry price (team colour by direction) with a
   // tiny horizon label; skipped when the entry is outside the visible band.
-  const FC_LABELS = ['1m', '5m', '15m', '1h', '4h', '24h'];
+  const FC_LABELS = ['1m', '5m', '15m', '1h', '4h', '1d'];
   const FC_COLORS = { u: '#a6e85c', d: '#d63a4f' };
   let getForecasts = null;
   let myLook = null; // cosmetics look for the owner's kid (null = feature off)
@@ -332,18 +332,27 @@ export function createRenderer(canvas, scene) {
     const r = round.state;
     if (!list || !list.length || r.phase === 'waiting' || !(r.high > r.low)) return;
     const pxPerUsd = (s.Fmax - s.Fmin) / (r.high - r.low);
+    let n = 0;
     for (let i = 0; i < list.length; i++) {
       const fc = list[i];
-      const y = Math.round(s.Fmin + (r.high - fc[2]) * pxPerUsd);
+      // candle entries ['c', h, dir, t0, open]: line at the CANDLE OPEN (only once it's known);
+      // legacy entries [h, dir, entryPrice, …]: line at the entry price
+      const candle = fc[0] === 'c';
+      const h = candle ? fc[1] : fc[0];
+      const dir = candle ? fc[2] : fc[1];
+      const price = candle ? fc[4] : fc[2];
+      if (!(price > 0)) continue;
+      const y = Math.round(s.Fmin + (r.high - price) * pxPerUsd);
       if (y < s.top + 2 || y > s.bot - 2) continue;
-      ctx.fillStyle = FC_COLORS[fc[1]] || PALETTE.B;
-      for (let x = (i & 1); x < AXIS_X - 8; x += 3) ctx.fillRect(x, y, 1, 1);
-      const label = miniText(FC_LABELS[fc[0]] || '', FC_COLORS[fc[1]] || PALETTE.B);
+      ctx.fillStyle = FC_COLORS[dir] || PALETTE.B;
+      for (let x = (n & 1); x < AXIS_X - 8; x += 3) ctx.fillRect(x, y, 1, 1);
+      const label = miniText(FC_LABELS[h] || '', FC_COLORS[dir] || PALETTE.B);
       const ly = y - 7 >= s.top ? y - 7 : y + 2;
-      const lx = 1 + i * 16; // stagger labels so equal entry prices don't hide each other
+      const lx = 1 + n * 16; // stagger labels so equal prices don't hide each other
       ctx.fillStyle = PALETTE.k;
       ctx.fillRect(lx, ly - 1, label.width + 2, 7);
       ctx.drawImage(label, lx + 1, ly);
+      n++;
     }
   }
 

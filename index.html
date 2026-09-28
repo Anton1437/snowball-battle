@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Press+Start+2P&family=Tiny5&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=6ee7c4dd">
+  <link rel="stylesheet" href="styles.css?v=a191950d">
 </head>
 <body>
   <div id="app" class="app">
@@ -100,33 +100,35 @@
     </section>
     <section id="profile-panel" class="panel profile-panel" hidden></section>
     <section id="guess-panel" class="panel guess" hidden>
-      <button id="guess-mode" class="mode-btn" type="button"></button>
-      <span id="guess-round" class="guess-part">
-        <span id="guess-label" class="guess-label"></span>
-        <span id="guess-actions" class="guess-actions">
-          <button class="gbtn g" type="button" data-side="g"><i class="tri up" aria-hidden="true"></i><span data-i18n="guess.green"></span></button>
-          <button class="gbtn r" type="button" data-side="r"><i class="tri down" aria-hidden="true"></i><span data-i18n="guess.red"></span></button>
+      <div class="g-row1">
+        <button id="guess-mode" class="mode-btn" type="button"></button>
+        <span id="guess-round" class="guess-part">
+          <span id="guess-label" class="guess-label"></span>
+          <span id="guess-actions" class="guess-actions">
+            <button class="gbtn g" type="button" data-side="g"><i class="tri up" aria-hidden="true"></i><span data-i18n="guess.green"></span></button>
+            <button class="gbtn r" type="button" data-side="r"><i class="tri down" aria-hidden="true"></i><span data-i18n="guess.red"></span></button>
+          </span>
+          <span id="guess-note" class="guess-note" data-i18n="guess.leaveNote"></span>
         </span>
-        <span id="guess-note" class="guess-note" data-i18n="guess.leaveNote"></span>
-      </span>
-      <span id="guess-fc" class="guess-part fc-part" hidden>
-        <button id="fc-pick" class="chip pick" type="button" aria-haspopup="true" aria-expanded="false"></button>
+        <span id="fc-bar-chips" class="fc-chips bar-chips" role="radiogroup" data-i18n-aria="fc.pickH" hidden></span>
+      </div>
+      <div id="fc-row2" class="g-row2" hidden>
+        <span id="fc-status" class="fc-status read"><span class="l1"></span><span class="l2 num"></span></span>
         <span id="fc-actions" class="guess-actions">
           <button class="gbtn g" type="button" data-dir="u"><i class="tri up" aria-hidden="true"></i><span data-i18n="fc.up"></span></button>
           <button class="gbtn r" type="button" data-dir="d"><i class="tri down" aria-hidden="true"></i><span data-i18n="fc.down"></span></button>
         </span>
-        <button id="fc-count" class="fc-count" type="button" hidden></button>
-      </span>
-      <div id="fc-picker" class="panel fc-picker" role="radiogroup" data-i18n-aria="fc.pickH" hidden></div>
+      </div>
     </section>
     <section id="forecast-panel" class="panel forecast-panel" hidden>
       <div class="ttl" data-i18n="fc.title"></div>
       <div id="fc-chips" class="fc-chips" role="radiogroup" data-i18n-aria="fc.pickH"></div>
+      <div id="fc-wide-status" class="fc-status read"><span class="l1"></span><span class="l2 num"></span></div>
       <div id="fc-wide-actions" class="fc-wide-actions">
         <button class="gbtn g" type="button" data-dir="u"><i class="tri up" aria-hidden="true"></i><span data-i18n="fc.up"></span></button>
         <button class="gbtn r" type="button" data-dir="d"><i class="tri down" aria-hidden="true"></i><span data-i18n="fc.down"></span></button>
       </div>
-      <div id="fc-wide-hint" class="fc-hint read"></div>
+      <div class="fc-hint read" data-i18n="fc.byBinance"></div>
       <div id="fc-list" class="fc-list read"></div>
     </section>
     <section id="walls-panel" class="panel walls">
@@ -173,6 +175,7 @@
         <button id="menu-lang" class="setting" type="button"><span data-i18n="menu.lang"></span><span class="state"></span></button>
         <button id="menu-help" class="setting setting-help" type="button" data-i18n-aria="tut.replay"><span aria-hidden="true">?</span></button>
       </div>
+      <div id="menu-version" class="menu-version num"></div>
     </div>
   </div>
 
@@ -220,6 +223,6 @@
     </div>
   </div>
 
-  <script type="module" src="src/main.js?v=6ee7c4dd"></script>
+  <script type="module" src="src/main.js?v=a191950d"></script>
 </body>
 </html>

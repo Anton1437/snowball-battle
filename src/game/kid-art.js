@@ -2,8 +2,8 @@
 // per (sprite, team, equip combination) and cached, hat overlays pinned to HAT_POINTS for the
 // exact animation frame, and the gold "you" marker. Shared by the field renderer and the
 // profile avatar. No allocations per call.
-import { SPRITES, PALETTE, frames, drawSprite } from './sprites-cache.js?v=6ee7c4dd';
-import { hatPoint } from '../cosmetics.js?v=6ee7c4dd';
+import { SPRITES, PALETTE, frames, drawSprite } from './sprites-cache.js?v=a191950d';
+import { hatPoint } from '../cosmetics.js?v=a191950d';
 
 // Kid sprite anchored at feet (ax, ay); (x, y) = feet position.
 export function drawKidLook(ctx, name, team, frame, x, y, look) {

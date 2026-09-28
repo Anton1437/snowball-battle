@@ -6,8 +6,8 @@
 // cos_* / marker_you sprites. Everything here degrades gracefully while any of it is missing:
 // overlays without a sprite or hat point are skipped, swaps/trails/frames fall back to palette
 // colours below.
-import * as ART from './sprites.js?v=6ee7c4dd';
-import { levelOf } from './progress/achievements.js?v=6ee7c4dd';
+import * as ART from './sprites.js?v=a191950d';
+import { levelOf } from './progress/achievements.js?v=a191950d';
 
 export const SLOTS = ['hat', 'scarf', 'mitt', 'trail', 'frame'];
 export const SLOT_KEY = { hat: 'h', scarf: 's', mitt: 'm', trail: 't', frame: 'f' }; // keys in p.eq
