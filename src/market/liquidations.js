@@ -1,7 +1,7 @@
 // Binance USD-M futures liquidation stream (best effort — often geo-blocked; failures are silent).
 // Order side SELL = a long got liquidated (forced sell → hurts GREEN);
 // BUY = a short got liquidated (forced buy → hurts RED).
-import { createSocket } from './ws.js?v=a191950d';
+import { createSocket } from './ws.js?v=6561619d';
 
 const URLS = ['wss://fstream.binance.com/ws/btcusdt@forceOrder'];
 

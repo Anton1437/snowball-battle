@@ -4,16 +4,20 @@
 //
 // Interactive elements are built ONCE and updated in place (never rebuilt on a timer — iOS
 // swallows taps on nodes replaced mid-gesture).
-import { t } from './i18n.js?v=a191950d';
-import { spriteDataUrl, makeCanvas, UI } from './game/sprites-cache.js?v=a191950d';
-import { ACHIEVEMENTS, levelOf } from './progress/achievements.js?v=a191950d';
+import { t, getLang } from './i18n.js?v=6561619d';
+import { spriteDataUrl, makeCanvas, UI } from './game/sprites-cache.js?v=6561619d';
+import { ACHIEVEMENTS, levelOf } from './progress/achievements.js?v=6561619d';
 import {
-  ITEMS, SLOTS, SLOT_KEY, byId, isUnlocked, unlockedMask, buildLook, viewOf, trailColors, frameColors,
-} from './cosmetics.js?v=a191950d';
-import { drawKidLook } from './game/kid-art.js?v=a191950d';
+  ITEMS, SLOTS, SLOT_KEY, byId, isUnlocked, unlockedMask, buildLook, avatarViewOf, avatarSpriteName,
+  trailColors, frameColors, LOOK_IDS, isLookUnlocked, lookReq, lookItemIds,
+} from './cosmetics.js?v=6561619d';
+import { drawKidLook } from './game/kid-art.js?v=6561619d';
+import * as ART from './sprites.js?v=6561619d';
 
-const AV_W = 20;            // avatar canvas (logical px): room for a crown above the hat
-const AV_H = 26;
+// Avatar canvas (logical px): room for a crown above the hat, and (v1.08) for a pet standing
+// 12 px to the right of the kid's feet and a back item's hem below it.
+const AV_W = 28;
+const AV_H = 30;
 const AV_FEET = [10, 25];
 const ANIM_MS = 500;        // idle anim at 2 fps
 const achName = (id) => t(`ach.${id}.name`);
@@ -26,26 +30,51 @@ function el(tag, cls, text) {
   return n;
 }
 
-// Requirement tag under a locked cell (DESIGN.md §11): "УР. 10" / "LV 10" or the achievement name.
+// Requirement tag under a locked cell (DESIGN.md §11): "УР. 10" / "LV 10", the achievement
+// name, or (v1.08 premium items/looks, §12) the shop star.
 export function reqTag(item) {
+  if (item.unlock.premium) return t('wr.premiumTag');
   if (item.unlock.level) return t('wr.lvTag', { n: item.unlock.level });
   return ACH_IDS.has(item.unlock.ach) ? achName(item.unlock.ach) : item.unlock.ach;
 }
 
 export function lockText(item) {
+  if (item.unlock.premium) return t('wr.premium');
   if (item.unlock.level) return t('wr.lockLevel', { n: item.unlock.level });
   return t('wr.lockAch', { a: ACH_IDS.has(item.unlock.ach) ? achName(item.unlock.ach) : item.unlock.ach });
 }
 
+// Same tag/status text for a curated look (LOOKS[id]).
+export function lookReqTag(id) {
+  const look = ART.LOOKS[id];
+  if (look.tier === 'premium') return t('wr.premiumTag');
+  const req = lookReq(id);
+  if (!req) return '';
+  if (req.level) return t('wr.lvTag', { n: req.level });
+  return ACH_IDS.has(req.ach) ? achName(req.ach) : req.ach;
+}
+
+export function lookLockText(id) {
+  const look = ART.LOOKS[id];
+  if (look.tier === 'premium') return t('wr.premium');
+  const req = lookReq(id);
+  if (!req) return '';
+  if (req.level) return t('wr.lockLevel', { n: req.level });
+  return t('wr.lockAch', { a: ACH_IDS.has(req.ach) ? achName(req.ach) : req.ach });
+}
+
 // ---------- item previews (cached data URLs; locked = slate bake per DESIGN.md §10) ----------
+// Green faces the viewer in the beanie here (DESIGN.md §11 v1.08): kid_front_beanie_* instead
+// of the back view. Never used on the battlefield — field rendering keeps kid_back_* for green.
 const previewCache = new Map();
 export function itemPreviewUrl(item, team, locked) {
   const key = `${item ? item.id : 'none'}|${team}|${locked}`;
   if (previewCache.has(key)) return previewCache.get(key);
   const c = makeCanvas(AV_W, AV_H);
   const g = c.getContext('2d');
-  const look = buildLook(item ? { [SLOT_KEY[item.slot]]: item.id } : {}, team, null);
-  drawKidLook(g, `kid_${viewOf(team)}_idle`, team, 0, AV_FEET[0], AV_FEET[1], look);
+  const view = avatarViewOf(team);
+  const look = buildLook(item ? { [SLOT_KEY[item.slot]]: item.id } : {}, team, null, { view });
+  drawKidLook(g, avatarSpriteName(team, 'idle'), team, 0, AV_FEET[0], AV_FEET[1], look);
   if (locked) {
     const img = g.getImageData(0, 0, AV_W, AV_H);
     const d = img.data;
@@ -62,6 +91,28 @@ export function itemPreviewUrl(item, team, locked) {
   return url;
 }
 
+// A curated LOOKS[id] bundle, shown on the wardrobe cell regardless of lock (matches
+// itemPreviewUrl's pattern; the caller recolours to slate for a locked look).
+const lookPreviewCache = new Map();
+export function lookPreviewUrl(id, team) {
+  const key = `${id}|${team}`;
+  if (lookPreviewCache.has(key)) return lookPreviewCache.get(key);
+  const look = ART.LOOKS[id];
+  const eq = {};
+  for (const itemId of lookItemIds(look)) {
+    const it = byId[itemId];
+    if (it) eq[SLOT_KEY[it.slot]] = itemId;
+  }
+  const c = makeCanvas(AV_W, AV_H);
+  const g = c.getContext('2d');
+  const view = avatarViewOf(team);
+  const built = buildLook(eq, team, null, { view });
+  drawKidLook(g, avatarSpriteName(team, 'idle'), team, 0, AV_FEET[0], AV_FEET[1], built);
+  const url = c.toDataURL('image/png');
+  lookPreviewCache.set(key, url);
+  return url;
+}
+
 // ---------- look controller ----------
 export function createCosmetics({ store, tracker, onLook, toast }) {
   let tryTeam = null;          // preview-only team for the avatar ("Примерить")
@@ -70,16 +121,26 @@ export function createCosmetics({ store, tracker, onLook, toast }) {
   const listeners = new Set();
   const p = () => store.state;
   const myTeam = () => (tracker.sideState().picked === 'r' ? 'red' : 'green');
+  // v1.08 (DESIGN.md §12): premium items/looks are TRIED ON in the profile preview only — an
+  // overlay on top of the real equip, never persisted, never sent to the field renderer.
+  let preview = null; // { eq: {...}, ids: Set<string> } | null
 
   // Upgrading users: everything already unlocked counts as notified (no toast storm);
   // the profile dot still shows until the wardrobe is opened.
-  if (!Array.isArray(p().seen)) {
-    p().seen = [unlockedMask(p()), 0];
+  // seen[0]/seen[1] are BigInt masks (ITEMS is past 32 entries) stored as decimal strings —
+  // BigInt() reads both a legacy small number and the new string the same way. Re-checked (not
+  // just on first load) so a runtime profile reset — e.g. the __sb.progress.reset() QA helper —
+  // never leaves it null.
+  function ensureSeen(q) {
+    if (Array.isArray(q.seen)) return;
+    q.seen = [unlockedMask(q).toString(), '0'];
     store.markDirty();
   }
+  ensureSeen(p());
 
   function refresh() {
     const q = p();
+    ensureSeen(q);
     const mask = unlockedMask(q);
     const team = myTeam();
     const key = `${team}|${JSON.stringify(q.eq || {})}|${mask}`;
@@ -87,11 +148,11 @@ export function createCosmetics({ store, tracker, onLook, toast }) {
       lastKey = key;
       onLook?.(buildLook(q.eq, team, q), team);
     }
-    const fresh = mask & ~q.seen[0];
+    const fresh = mask & ~BigInt(q.seen[0] ?? 0);
     if (fresh) {
-      q.seen[0] |= fresh;
+      q.seen[0] = (BigInt(q.seen[0] ?? 0) | fresh).toString();
       store.markDirty();
-      ITEMS.forEach((it, i) => { if (fresh & (1 << i)) toast?.(it); });
+      ITEMS.forEach((it, i) => { if (fresh & (1n << BigInt(i))) toast?.(it); });
     }
     paintFrames();
     listeners.forEach((fn) => fn());
@@ -108,21 +169,45 @@ export function createCosmetics({ store, tracker, onLook, toast }) {
       q.eq[k] = id;
     }
     store.markDirty();
+    preview = null; // a real equip supersedes any try-on preview
     refresh();
     return true;
   }
 
+  // Equips every item a free, unlocked look bundles (DESIGN.md §12: "grants its items"). Fails
+  // (no-op) for a premium look or one still locked — use setPreview for those instead.
+  function equipLook(id) {
+    const look = ART.LOOKS?.[id];
+    if (!look || look.tier !== 'free' || !isLookUnlocked(id, p())) return false;
+    let any = false;
+    for (const itemId of lookItemIds(look)) {
+      const it = byId[itemId];
+      if (it && equip(it.slot, it.id)) any = true;
+    }
+    return any;
+  }
+
+  // Try-on preview (premium items/looks): `eqPatch` is a partial { [slotKey]: itemId } overlaid
+  // on the real equip for the avatar only. Pass null to clear it.
+  function setPreview(eqPatch) {
+    preview = eqPatch && Object.keys(eqPatch).length ? { eq: eqPatch, ids: new Set(Object.values(eqPatch)) } : null;
+    listeners.forEach((fn) => fn());
+    avatars.forEach((c) => drawAvatar(c));
+  }
+
   function markViewed() {
     const q = p();
+    ensureSeen(q);
     const mask = unlockedMask(q);
-    if ((q.seen[1] & mask) !== mask) {
-      q.seen[1] |= mask;
+    const seen1 = BigInt(q.seen[1] ?? 0);
+    if ((seen1 & mask) !== mask) {
+      q.seen[1] = (seen1 | mask).toString();
       store.markDirty();
       listeners.forEach((fn) => fn());
     }
   }
 
-  const hasUnseen = () => (unlockedMask(p()) & ~p().seen[1]) !== 0;
+  const hasUnseen = () => { ensureSeen(p()); return (unlockedMask(p()) & ~BigInt(p().seen[1] ?? 0)) !== 0n; };
 
   // profile frame ring (DESIGN.md §11): ring [0] 4 px, inner [1] 2 px, top highlight [2] 2 px;
   // frame_aurora rotates its 3 colours ring → inner → highlight every 400 ms.
@@ -154,21 +239,25 @@ export function createCosmetics({ store, tracker, onLook, toast }) {
     for (const c of avatars) if (c.isConnected && c.offsetParent) drawAvatar(c);
   }, ANIM_MS);
 
+  // Green faces the viewer in the beanie (DESIGN.md §11 v1.08): the profile avatar uses
+  // kid_front_beanie_* instead of the back view. Never on the battlefield.
   function drawAvatar(canvas) {
     const team = tryTeam || myTeam();
     const g = canvas.getContext('2d');
     g.clearRect(0, 0, AV_W, AV_H);
-    drawKidLook(g, `kid_${viewOf(team)}_idle`, team, frame, AV_FEET[0], AV_FEET[1], buildLookCached(team));
+    drawKidLook(g, avatarSpriteName(team, 'idle'), team, frame, AV_FEET[0], AV_FEET[1], buildLookCached(team), performance.now() / 1000);
   }
 
   const lookCache = new Map();
   function buildLookCached(team) {
     const q = p();
-    const key = `${team}|${JSON.stringify(q.eq || {})}|${unlockedMask(q)}`;
+    const view = avatarViewOf(team);
+    const eq = preview ? { ...(q.eq || {}), ...preview.eq } : q.eq;
+    const key = `${team}|${view}|${JSON.stringify(eq || {})}|${unlockedMask(q)}`;
     let lk = lookCache.get(key);
     if (!lk) {
       if (lookCache.size > 16) lookCache.clear();
-      lk = buildLook(q.eq, team, q);
+      lk = buildLook(eq, team, q, { view, extraIds: preview?.ids });
       lookCache.set(key, lk);
     }
     return lk;
@@ -177,6 +266,9 @@ export function createCosmetics({ store, tracker, onLook, toast }) {
   return {
     refresh,
     equip,
+    equipLook,
+    setPreview,
+    get preview() { return preview; },
     markViewed,
     hasUnseen,
     myTeam,
@@ -299,6 +391,28 @@ export function createWardrobe({ store, cosmetics, onEquip }) {
   const root = el('section', 'wardrobe read');
   const head = el('h3', 'menu-sub');
   root.append(head);
+
+  // «Образы» / Looks: one tap equips a whole free bundle; premium looks are try-on only.
+  const looksBox = el('div', 'wr-slot wr-looks');
+  const looksLabel = el('div', 'wr-slot-name');
+  const looksItems = el('div', 'wr-items');
+  looksItems.setAttribute('role', 'radiogroup');
+  looksBox.append(looksLabel, looksItems);
+  root.append(looksBox);
+  const lookButtons = LOOK_IDS.map((id) => {
+    const b = el('button', 'wr-item wr-look');
+    b.type = 'button';
+    b.dataset.look = id;
+    const thumb = el('span', 'wr-thumb');
+    const img = new Image();
+    img.className = 'px-icon';
+    img.alt = '';
+    thumb.append(img);
+    b.append(thumb, el('span', 'wr-name'), el('span', 'wr-req'));
+    looksItems.append(b);
+    return { b, id };
+  });
+
   const slotEls = {};
   for (const slot of SLOTS) {
     const box = el('div', 'wr-slot');
@@ -335,15 +449,42 @@ export function createWardrobe({ store, cosmetics, onEquip }) {
   shop.setAttribute('aria-disabled', 'true');
   root.append(status, shop);
 
-  let statusItem; // undefined = nothing tapped yet (show the hint)
+  let statusText = ''; // '' = nothing tapped yet (show the hint)
   root.addEventListener('click', (e) => {
+    const lb = e.target.closest('.wr-look');
+    if (lb) {
+      const id = lb.dataset.look;
+      const look = ART.LOOKS[id];
+      const name = getLang() === 'ru' ? look.name_ru : look.name_en;
+      if (look.tier === 'premium') {
+        const eq = {};
+        for (const itemId of lookItemIds(look)) { const it = byId[itemId]; if (it) eq[SLOT_KEY[it.slot]] = itemId; }
+        cosmetics.setPreview(eq);
+        statusText = `${name} · ${lookLockText(id)}`;
+      } else if (isLookUnlocked(id, store.state)) {
+        cosmetics.setPreview(null);
+        if (cosmetics.equipLook(id)) { onEquip?.(); statusText = t('wr.equipped', { name }); }
+      } else {
+        cosmetics.setPreview(null);
+        statusText = `${name} · ${lookLockText(id)}`;
+      }
+      update();
+      return;
+    }
     const b = e.target.closest('.wr-item');
     if (!b) return;
     const slot = b.parentElement.dataset.slot;
     const it = byId[b.dataset.id] || null;
-    statusItem = it;
+    const name = it ? t(`item.${it.id}`) : t('wr.none');
     if (!it || isUnlocked(it, store.state)) {
-      if (cosmetics.equip(slot, it ? it.id : null)) onEquip?.();
+      cosmetics.setPreview(null);
+      if (cosmetics.equip(slot, it ? it.id : null)) { onEquip?.(); statusText = t('wr.equipped', { name }); }
+    } else if (it.unlock.premium) {
+      cosmetics.setPreview({ [SLOT_KEY[slot]]: it.id });
+      statusText = `${name} · ${lockText(it)}`;
+    } else {
+      cosmetics.setPreview(null);
+      statusText = `${name} · ${lockText(it)}`;
     }
     update();
   });
@@ -354,18 +495,49 @@ export function createWardrobe({ store, cosmetics, onEquip }) {
     const q = store.state;
     const team = cosmetics.tryTeam;
     head.textContent = t('wr.title');
+    looksLabel.textContent = t('slot.looks');
+    looksItems.setAttribute('aria-label', t('slot.looks'));
+    for (const { b, id } of lookButtons) {
+      const look = ART.LOOKS[id];
+      const premium = look.tier === 'premium';
+      const unlocked = !premium && isLookUnlocked(id, q);
+      const previewing = cosmetics.preview && lookItemIds(look).every((iid) => Object.values(cosmetics.preview.eq).includes(iid));
+      b.classList.toggle('locked', !unlocked);
+      b.classList.toggle('premium', premium);
+      b.classList.toggle('on', previewing || (unlocked && lookItemIds(look).every((iid) => {
+        const it = byId[iid];
+        return !it || (q.eq || {})[SLOT_KEY[it.slot]] === iid;
+      })));
+      b.setAttribute('aria-disabled', String(!unlocked && !premium));
+      const nm = getLang() === 'ru' ? look.name_ru : look.name_en;
+      const nameEl = b.querySelector('.wr-name');
+      if (nameEl.textContent !== nm) nameEl.textContent = nm;
+      const req = b.querySelector('.wr-req');
+      const rq = unlocked ? '' : lookReqTag(id);
+      if (req.textContent !== rq) req.textContent = rq;
+      req.hidden = unlocked;
+      const img = b.querySelector('img');
+      const src = lookPreviewUrl(id, team);
+      if (img.src !== src) img.src = src;
+      const title = `${nm}${unlocked ? '' : ` · ${lookLockText(id)}`}`;
+      if (b.title !== title) { b.title = title; b.setAttribute('aria-label', title); }
+    }
     for (const slot of SLOTS) {
       const { label, items, buttons } = slotEls[slot];
       label.textContent = t(`slot.${slot}`);
       items.setAttribute('aria-label', t(`slot.${slot}`));
       const equipped = q.eq?.[SLOT_KEY[slot]] || '';
+      const previewedId = cosmetics.preview?.eq?.[SLOT_KEY[slot]];
       for (const { b, it } of buttons) {
         const unlocked = !it || isUnlocked(it, q);
-        const on = (it ? it.id : '') === equipped;
+        const on = (it ? it.id : '') === equipped && previewedId == null;
+        const previewing = it && previewedId === it.id;
         b.classList.toggle('locked', !unlocked);
+        b.classList.toggle('premium', !!it?.unlock.premium);
         b.classList.toggle('on', on);
+        b.classList.toggle('previewing', previewing);
         b.setAttribute('aria-checked', String(on));
-        b.setAttribute('aria-disabled', String(!unlocked));
+        b.setAttribute('aria-disabled', String(!unlocked && !it?.unlock.premium));
         const title = `${itemName(it)}${unlocked ? '' : ` · ${lockText(it)}`}`;
         if (b.title !== title) {
           b.title = title;
@@ -392,9 +564,7 @@ export function createWardrobe({ store, cosmetics, onEquip }) {
         }
       }
     }
-    const it = statusItem;
-    status.textContent = it === undefined ? t('wr.hint')
-      : !it || isUnlocked(it, q) ? t('wr.equipped', { name: itemName(it) }) : `${itemName(it)} · ${lockText(it)}`;
+    status.textContent = statusText || t('wr.hint');
     shop.textContent = t('wr.shop');
   }
 

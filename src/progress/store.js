@@ -24,7 +24,9 @@ const emptyFh = () => Array.from({ length: HORIZON_COUNT }, () => [0, 0, 0, 0, 0
 //   xd: [watch, guess, round, forecastShort(1м–15м), forecastLong(1ч–24ч)] daily XP
 //   tu: 1 once the tutorial was seen
 // v1.07 (optional fields, still v2 — defaults fill them in):
-//   eq:   equipped cosmetics { h, s, m, t, f } → item id (absent = none)
+//   eq:   equipped cosmetics { h, s, m, t, f } → item id (absent = none). v1.08 cosmetics v2
+//         (DESIGN.md §12) adds three more optional slot keys, still short catalog-id strings:
+//         p (pet), k (back item), u (aura), x (trim).
 //   seen: [notifiedMask, wardrobeViewedMask] over the append-only cosmetics catalog
 export function defaultProfile(day, uid = null) {
   return {
@@ -94,10 +96,10 @@ export function merge(local, cloud) {
   out.fh = (newer.fh || emptyFh()).map((row, h) => row.map((v, i) => (i === 2 ? v : maxOf(local.fh?.[h]?.[i], cloud.fh?.[h]?.[i]))));
   out.tu = maxOf(local.tu, cloud.tu);
   out.eq = { ...(newer.eq || {}) }; // equipment from the newer copy
-  if (local.seen || cloud.seen) {   // seen flags: union
-    const a = local.seen || [0, 0];
-    const b = cloud.seen || [0, 0];
-    out.seen = [a[0] | b[0], a[1] | b[1]];
+  if (local.seen || cloud.seen) {   // seen flags: union (BigInt masks stored as decimal strings)
+    const a = local.seen || ['0', '0'];
+    const b = cloud.seen || ['0', '0'];
+    out.seen = [(BigInt(a[0] ?? 0) | BigInt(b[0] ?? 0)).toString(), (BigInt(a[1] ?? 0) | BigInt(b[1] ?? 0)).toString()];
   }
   out.d0 = Math.min(local.d0 ?? Infinity, cloud.d0 ?? Infinity);
   out.rev = maxOf(local.rev, cloud.rev);

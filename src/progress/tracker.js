@@ -2,9 +2,9 @@
 // guesses, "seen" market events, XP with daily caps, achievements. Only counts while the
 // source is live (never DEMO/null), the page is visible, test URL params are absent (unless
 // ?progtest=1) and this tab holds the multi-tab lock. Durations use monotonic time only.
-import { utcDayOf } from './store.js?v=a191950d';
-import { checkAll, RARITY_XP } from './achievements.js?v=a191950d';
-import { isGuessLocked, roundSig } from './guess.js?v=a191950d';
+import { utcDayOf } from './store.js?v=6561619d';
+import { checkAll, RARITY_XP } from './achievements.js?v=6561619d';
+import { isGuessLocked, roundSig } from './guess.js?v=6561619d';
 
 const TICK_MS = 1000;
 const MAX_STEP_S = 1.5;

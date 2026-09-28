@@ -3,8 +3,8 @@
 //
 // Teams: 'red' = sellers, TOP, front view (trapper hat). 'green' = buyers, BOTTOM, back view (beanie).
 // Market side → team: 'buy' → green, 'sell' → red.
-import { SPRITES, TEAM_COLORS, PALETTE } from '../sprites.js?v=a191950d';
-import { createCamera } from './camera.js?v=a191950d';
+import { SPRITES, TEAM_COLORS, PALETTE } from '../sprites.js?v=6561619d';
+import { createCamera } from './camera.js?v=6561619d';
 
 export const W = 192;
 export const AXIS_X = 168;
@@ -74,6 +74,7 @@ export function createScene({ reducedMotion = false, hooks = {} } = {}) {
     pressure: 0,
     myKid: null,   // the owner's kid (v1.07)
     myTrail: null, // { kind, colors } equipped trail for the owner's throws
+    myAuraSteps: null, // v1.08: { color, everyPx, lifeMs, max, dist } for aura_frost_steps
     trails: pool(72, () => ({ active: false })), // 3 balls × 24
   };
 
@@ -156,11 +157,29 @@ export function createScene({ reducedMotion = false, hooks = {} } = {}) {
     f.len = SPRITES[name].frames.length / (SPRITES[name].fps || 1);
   }
 
-  function spawnParticle(x, y, vx, vy, life, color) {
+  function spawnParticle(x, y, vx, vy, life, color, opts = null) {
     const p = s.particles.find((o) => !o.active);
     if (!p) return;
     p.active = true;
     p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.life = life; p.age = 0; p.color = color;
+    p.tag = opts?.tag || '';
+    p.static = !!opts?.static;
+    p.w = opts?.w || 1;
+    p.h = opts?.h || 1;
+  }
+
+  // aura_frost_steps (DESIGN.md §12): a footprint every few px the owner's kid is pushed,
+  // lasting ~1.2 s, capped at a handful on screen — pooled off the shared particle list.
+  function maybeSpawnFootprint(dyAbs) {
+    const st = s.myAuraSteps;
+    if (!st) return;
+    st.dist += dyAbs;
+    if (st.dist < st.everyPx) return;
+    st.dist = 0;
+    let live = 0;
+    for (const p of s.particles) if (p.active && p.tag === 'step') live++;
+    if (live >= st.max) return;
+    spawnParticle(s.myKid.x, s.myKid.y, 0, 0, st.lifeMs / 1000, st.color, { tag: 'step', static: true, w: 2, h: 2 });
   }
 
   function pickTargetKid(team) {
@@ -355,6 +374,7 @@ export function createScene({ reducedMotion = false, hooks = {} } = {}) {
         }
       }
       k.moving = dt > 0 && Math.abs(dy) / dt > 4; // running → step bob in the renderer
+      if (k === s.myKid) maybeSpawnFootprint(Math.abs(dy));
       k.t += dt;
 
       if (s.winner) continue; // cheer/duck loops until the new round
@@ -470,6 +490,7 @@ export function createScene({ reducedMotion = false, hooks = {} } = {}) {
       if (!p.active) continue;
       p.age += dt;
       if (p.age >= p.life) { p.active = false; continue; }
+      if (p.static) continue; // frost-step footprints: sit still, pop out at the end
       p.vy += 90 * dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
@@ -529,10 +550,15 @@ export function createScene({ reducedMotion = false, hooks = {} } = {}) {
   return {
     state: s,
     // v1.07: the owner's kid = centre front-row kid of the team they back today.
-    setMyKid(team, trailId, trailColors) {
+    // v1.08: `aura` is the equipped AURAS entry (or null); only mode:'steps' spawns footprints
+    // here — ring/outline/orbit auras are drawn directly by kid-art.js.
+    setMyKid(team, trailId, trailColors, aura) {
       s.myKid = s.kids.find((k) => k.team === team && k.row === 'front' && k.x === 84) || null;
       const kind = TRAIL_KIND[trailId];
       s.myTrail = kind && trailColors?.length ? { kind, colors: trailColors } : null;
+      s.myAuraSteps = aura?.mode === 'steps'
+        ? { color: aura.colors?.[0] || PALETTE.b, everyPx: aura.everyPx || 4, lifeMs: aura.lifeMs || 1200, max: aura.max || 6, dist: 0 }
+        : null;
     },
     // ✓ → cheer with a gold sparkle, ✗ → hit (then the usual duck)
     reactMyKid(win) {

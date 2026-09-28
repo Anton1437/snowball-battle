@@ -5,27 +5,27 @@
 //             ?feeds=binance,bybit,coinbase,liquidations  only open these sockets (fallback testing)
 //             ?delay=binance:5000  open a venue's socket late (tests late joiners in AGG)
 //             ?progtest=1  allow progress tracking with test params; uses test_-prefixed storage keys
-import { createMarket, SOURCES } from './market/market.js?v=a191950d';
-import { createSourceMenu } from './source-menu.js?v=a191950d';
-import { createRound } from './game/round.js?v=a191950d';
-import { createScene, W } from './game/scene.js?v=a191950d';
-import { createRenderer, fitCanvas } from './game/renderer.js?v=a191950d';
-import { preloadAll } from './game/sprites-cache.js?v=a191950d';
-import { createHud } from './hud.js?v=a191950d';
-import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=a191950d';
+import { createMarket, SOURCES } from './market/market.js?v=6561619d';
+import { createSourceMenu } from './source-menu.js?v=6561619d';
+import { createRound } from './game/round.js?v=6561619d';
+import { createScene, W } from './game/scene.js?v=6561619d';
+import { createRenderer, fitCanvas } from './game/renderer.js?v=6561619d';
+import { preloadAll } from './game/sprites-cache.js?v=6561619d';
+import { createHud } from './hud.js?v=6561619d';
+import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=6561619d';
 import {
   initTelegram, haptic, hapticSelection, notify, isTelegram, cloudStorage, telegramUser, isAppActive, onAppActiveChange,
-} from './tg.js?v=a191950d';
-import { createStore } from './progress/store.js?v=a191950d';
-import { createTracker } from './progress/tracker.js?v=a191950d';
-import { createProfileUi } from './profile-ui.js?v=a191950d';
-import { createForecasts } from './progress/forecast.js?v=a191950d';
-import { createTutorial } from './tutorial.js?v=a191950d';
-import { APP_VERSION, BUILD } from './version.js?v=a191950d';
-import { createCosmetics } from './wardrobe-ui.js?v=a191950d';
-import { markerTopY } from './game/kid-art.js?v=a191950d';
-import { viewOf } from './cosmetics.js?v=a191950d';
-import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=a191950d';
+} from './tg.js?v=6561619d';
+import { createStore } from './progress/store.js?v=6561619d';
+import { createTracker } from './progress/tracker.js?v=6561619d';
+import { createProfileUi } from './profile-ui.js?v=6561619d';
+import { createForecasts } from './progress/forecast.js?v=6561619d';
+import { createTutorial } from './tutorial.js?v=6561619d';
+import { APP_VERSION, BUILD } from './version.js?v=6561619d';
+import { createCosmetics } from './wardrobe-ui.js?v=6561619d';
+import { markerTopY } from './game/kid-art.js?v=6561619d';
+import { viewOf } from './cosmetics.js?v=6561619d';
+import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=6561619d';
 
 // ---------- config ----------
 const params = new URLSearchParams(location.search);
@@ -126,7 +126,7 @@ const cosmetics = createCosmetics({
     myLook = look;
     myTeam = team;
     renderer.setMyLook(look);
-    scene.setMyKid(team, look.trailId, look.trail);
+    scene.setMyKid(team, look.trailId, look.trail, look.aura);
   },
   toast: (item) => profileUi?.toastItem(item),
 });

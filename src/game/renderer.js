@@ -1,10 +1,10 @@
 // Canvas renderer for the scene at logical resolution 192 × H (DESIGN.md §4–§6, §9).
 // Layers: ground → front line → y-sorted actors/props → balls → FX  (all shaken)
 //         → price axis → snowflakes (not shaken). The DOM HUD sits on top.
-import { SPRITES, PALETTE, UI, drawSprite, frames, loopFrame, makeCanvas, miniText, miniTextWidth } from './sprites-cache.js?v=a191950d';
-import { W, AXIS_X, FIELD_W } from './scene.js?v=a191950d';
-import { axisLevels, signLabel } from './round.js?v=a191950d';
-import { drawKidLook, drawYouMarker } from './kid-art.js?v=a191950d';
+import { SPRITES, PALETTE, UI, drawSprite, frames, loopFrame, makeCanvas, miniText, miniTextWidth } from './sprites-cache.js?v=6561619d';
+import { W, AXIS_X, FIELD_W } from './scene.js?v=6561619d';
+import { axisLevels, signLabel } from './round.js?v=6561619d';
+import { drawKidLook, drawYouMarker, clampPetPos } from './kid-art.js?v=6561619d';
 
 const H_MIN = 256;
 const H_MAX = 420;
@@ -237,8 +237,11 @@ export function createRenderer(canvas, scene) {
         case 'kid':
           drawSprite(ctx, 'shadow_kid', d.x, d.key);
           if (d.ref === s.myKid && myLook) {
-            // the owner's kid: equipped cosmetics + gold marker (bob in sync with the kid)
-            drawKidLook(ctx, d.name, d.team, d.frame, d.x, d.y, myLook);
+            // the owner's kid: equipped cosmetics (pet/back/aura/trim, DESIGN.md §12) + gold
+            // marker (bob in sync with the kid). Pets stay ≥8 px from the front line, on their
+            // own side, x clamped to [8, 160], and never cross-fade into the actor y-sort.
+            const petPos = myLook.pet ? clampPetPos(d.team, d.x, d.y, myLook.pet.offset, s.F) : null;
+            drawKidLook(ctx, d.name, d.team, d.frame, d.x, d.y, myLook, s.time, petPos);
             drawYouMarker(ctx, d.name, d.frame, d.x, d.y, myLook, Math.floor(s.time * 3) % 2);
           } else {
             drawSprite(ctx, d.name, d.x, d.y, d.team, d.frame);
@@ -282,7 +285,7 @@ export function createRenderer(canvas, scene) {
     for (const p of s.particles) {
       if (!p.active) continue;
       ctx.fillStyle = p.color;
-      ctx.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), p.w || 1, p.h || 1);
     }
   }
 
