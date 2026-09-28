@@ -735,14 +735,13 @@ button, .toggles { pointer-events: auto; }
 .pvp-wind b { color: var(--up); } .pvp-wind b.neg { color: var(--down); }
 .pvp-arena { flex: 1; min-height: 0; position: relative; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
 #pvp-arena { position: absolute; left: 0; top: 0; width: 100%; image-rendering: pixelated; }
-.pvp-cols { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr 1fr; pointer-events: none; }
-.pvp-cols div.flash { background: rgba(255, 226, 122, 0.18); }
 .pvp-hint { position: absolute; left: 50%; top: 44%; transform: translateX(-50%); background: var(--panel-a); border: 2px solid var(--panel); padding: 4px 8px; white-space: nowrap; z-index: 3; pointer-events: none; font: 8px/1.4 var(--display); }
 .pvp-hint[hidden] { display: none; }
 .pvp-giantbtn {
   position: absolute; right: 8px; bottom: 8px; z-index: 4; display: none; flex-direction: column; align-items: center; gap: 2px;
   background: var(--demo); color: var(--panel); border: 2px solid var(--panel); outline: 2px solid var(--gold); outline-offset: -4px;
   padding: 4px 6px; box-shadow: 0 3px 0 var(--shadow); font: 8px/1.3 var(--display); animation: pvp-pulse .6s steps(2) infinite;
+  touch-action: none; user-select: none; -webkit-user-select: none;
 }
 .pvp-giantbtn .px-icon { width: 32px; height: auto; }
 .pvp-giantbtn.show { display: flex; }
@@ -753,15 +752,39 @@ button, .toggles { pointer-events: auto; }
 .pvp-band.g { background: var(--green); color: var(--panel); }
 .pvp-band.r { background: var(--red); color: var(--text); text-shadow: 2px 2px 0 var(--red-d); }
 .pvp-band.n { background: var(--panel); color: var(--gold); }
-.pvp-ctrl { flex: none; background: var(--panel); border-top: 2px solid var(--panel); padding: 6px 8px 8px; display: flex; flex-direction: column; gap: 6px; }
+.pvp-ctrl { flex: none; background: var(--panel); border-top: 2px solid var(--panel); padding: 6px 8px 8px; display: flex; flex-direction: column; gap: 8px; }
 .pvp-mebars { display: flex; gap: 6px; align-items: center; }
 .pvp-mebars .px-icon { width: 16px; height: auto; }
 .pvp-stam { width: 90px; height: 8px; border: 2px solid var(--panel); background: var(--border); position: relative; flex: none; }
 .pvp-stam i { position: absolute; inset: 0 auto 0 0; display: block; background: var(--whale); }
-.pvp-btns { display: grid; grid-template-columns: 56px 1fr 56px; gap: 8px; }
-.pvp-btns .pvp-btn { min-height: 52px; padding: 4px; }
-.pvp-duck { font: 8px/1.4 var(--display); }
+/* v1.081: one-hand cluster (◀▶ + wide duck) on one side, a big round THROW button on the other.
+   Default is move-left/throw-right; .pvp-lefty (toggled from the entry screen, persisted in
+   localStorage) mirrors the row. Every control here is touch-action:none so pointer events fire
+   immediately (no 300ms delay), can't be text-selected, and won't double-tap zoom. */
+.pvp-ctrl-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.pvp-lefty .pvp-ctrl-row { flex-direction: row-reverse; }
+.pvp-move-cluster { display: flex; flex-direction: column; gap: 12px; flex: 1; min-width: 0; }
+.pvp-move-pair { display: flex; gap: 12px; }
+.pvp-movebtn {
+  width: 64px; height: 64px; min-height: 64px; flex: none; font-size: 22px; padding: 0;
+  justify-content: center; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.pvp-duck { min-height: 48px; font: 8px/1.4 var(--display); justify-content: center; touch-action: none; user-select: none; -webkit-user-select: none; }
 .pvp-duck.on { background: var(--whale); outline-color: var(--gold); }
+.pvp-throwbtn {
+  position: relative; flex: none; width: 92px; height: 92px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--red); color: var(--text); border: 2px solid var(--panel);
+  box-shadow: 0 3px 0 var(--shadow); outline: 2px solid var(--red-d); outline-offset: -4px;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.pvp-throwbtn:active { transform: translateY(2px); box-shadow: none; }
+.pvp-throwbtn-inner { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; font: 10px/1 var(--display); text-shadow: 2px 2px 0 var(--red-d); }
+.pvp-throwbtn-inner .px-icon { width: 22px; height: auto; }
+.pvp-throwring { position: absolute; inset: -2px; width: calc(100% + 4px); height: calc(100% + 4px); transform: rotate(-90deg); pointer-events: none; }
+.pvp-throwring circle { fill: none; stroke-width: 6; }
+.pvp-throwring .bg { stroke: rgba(16, 20, 42, .35); }
+.pvp-throwring .fg { stroke: var(--gold); stroke-linecap: round; stroke-dasharray: 276.5; stroke-dashoffset: 276.5; }
 
 /* result */
 .pvp-rband { margin: 12px 12px 8px; padding: 10px; text-align: center; border-top: 4px solid var(--panel); border-bottom: 4px solid var(--panel); font: 16px/1.5 var(--display); }

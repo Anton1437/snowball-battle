@@ -1,18 +1,20 @@
 // PvP duels UI (gamification/PVP-SPEC.md §11): entry / fight / result / stats screens over the
 // existing field canvas. DOM is built once in index.html and only mutated in place (HANDOFF.md
 // timers rule). Input is touch/pointer, no 300 ms delay (pointerdown/up, not click, drives throws).
-import { t } from '../i18n.js?v=c67d170d';
+import { t } from '../i18n.js?v=17c4945d';
 import {
   SPRITES, PALETTE, frames, drawSprite, spriteDataUrl,
-} from '../game/sprites-cache.js?v=c67d170d';
-import { drawKidLook, drawYouMarker } from '../game/kid-art.js?v=c67d170d';
-import { fitCanvas } from '../game/renderer.js?v=c67d170d';
-import { buildLook } from '../cosmetics.js?v=c67d170d';
-import { levelOf } from '../progress/achievements.js?v=c67d170d';
-import { utcDayOf } from '../progress/store.js?v=c67d170d';
-import { haptic, notify, isAppActive, onAppActiveChange } from '../tg.js?v=c67d170d';
-import { play } from '../audio.js?v=c67d170d';
-import * as SIM from './sim.js?v=c67d170d';
+} from '../game/sprites-cache.js?v=17c4945d';
+import { drawKidLook, drawYouMarker } from '../game/kid-art.js?v=17c4945d';
+import { fitCanvas } from '../game/renderer.js?v=17c4945d';
+import { buildLook } from '../cosmetics.js?v=17c4945d';
+import { levelOf } from '../progress/achievements.js?v=17c4945d';
+import { utcDayOf } from '../progress/store.js?v=17c4945d';
+import {
+  haptic, hapticSelection, notify, isAppActive, onAppActiveChange,
+} from '../tg.js?v=17c4945d';
+import { play } from '../audio.js?v=17c4945d';
+import * as SIM from './sim.js?v=17c4945d';
 
 const $ = (id) => document.getElementById(id);
 const ENERGY_MAX = 10;
@@ -45,11 +47,13 @@ export function createPvp({ store, tracker }) {
     startBot: $('pvp-start-bot'), startPractice: $('pvp-start-practice'), openStats: $('pvp-open-stats'),
     fhudIcon: $('pvp-fhud-icon'), fhudName: $('pvp-fhud-name'),
     hpOpp: $('pvp-hp-opp'), hpOppT: $('pvp-hp-opp-t'), timer: $('pvp-timer'), wind: $('pvp-wind'),
-    arenaBox: $('pvp-arena-box'), arena: $('pvp-arena'), cols: [...$('pvp-cols').children], hint: $('pvp-hint'),
+    arenaBox: $('pvp-arena-box'), arena: $('pvp-arena'), hint: $('pvp-hint'),
     giantBtn: $('pvp-giant-btn'), giantIcon: $('pvp-giant-icon'),
     over: $('pvp-over'), overBand: $('pvp-over-band'), overGo: $('pvp-over-go'),
     meIcon: $('pvp-me-icon'), hpMe: $('pvp-hp-me'), hpMeT: $('pvp-hp-me-t'), stam: $('pvp-stam'),
     btnLeft: $('pvp-btn-left'), btnRight: $('pvp-btn-right'), btnDuck: $('pvp-btn-duck'),
+    btnThrow: $('pvp-btn-throw'), throwIcon: $('pvp-throw-icon'), throwRing: $('pvp-throw-ring-fg'),
+    handToggle: $('pvp-hand-toggle'),
     rband: $('pvp-rband'), rbandTitle: $('pvp-rband-title'), rbandSub: $('pvp-rband-sub'),
     resArt: $('pvp-res-art').getContext('2d'), rKv: $('pvp-r-kv'), rAch: $('pvp-r-ach'),
     again: $('pvp-again'), rStats: $('pvp-r-stats'),
@@ -63,6 +67,7 @@ export function createPvp({ store, tracker }) {
   el.resArt.imageSmoothingEnabled = false;
   el.hudIcon.src = spriteDataUrl('ach_target', 'green', 2); // distinct from the profile button's head icon
   el.giantIcon.src = spriteDataUrl('giant_back_idle', 'green', 1);
+  if (el.throwIcon) el.throwIcon.src = spriteDataUrl('ball_big', 'green', 2);
 
   let enabled = false;
   let getPressure = () => 0;
@@ -72,7 +77,7 @@ export function createPvp({ store, tracker }) {
   let match = null;
   let opp = null; // { tier, persona, points, name(key) }
   let practice = false;
-  let pendingActions = []; // this-frame decoded [code, extra] for 'me', drained into the next tick
+  let pendingActions = []; // this-frame decoded codes for 'me', drained into the next tick
   let lastResult = null;   // { win, meHp, opHp, hits, throws, fort, giants, wind, headwind, rating, xp, achIds }
   let rafId = 0;
   let lastFrame = 0;
@@ -81,7 +86,20 @@ export function createPvp({ store, tracker }) {
   let hintShown = false;
   let hiddenAt = 0;
   let sessionStreak = { wins: 0, losses: 0 }; // dynamic difficulty (§6.1); session-only, not persisted
-  let ptr = null; // pointer/touch state for the arena
+  let movePtr = null; // pointer/touch state for the arena swipe-to-move gesture
+  let throwHold = null; // { id, buzzed } — active hold on the THROW button (v1.081)
+  let kbThrowHeld = false; // desktop debug: spacebar hold mirrors the THROW button
+
+  // ---------- handedness (v1.081): mirrors the move/throw cluster, persisted locally ----------
+  const HAND_KEY = 'sb_pvp_hand';
+  const loadHand = () => { try { return localStorage.getItem(HAND_KEY) === 'left' ? 'left' : 'right'; } catch { return 'right'; } };
+  const saveHand = (v) => { try { localStorage.setItem(HAND_KEY, v); } catch { /* ignore */ } };
+  let hand = loadHand();
+  function applyHand() {
+    root.classList.toggle('pvp-lefty', hand === 'left');
+    if (el.handToggle) el.handToggle.textContent = hand === 'left' ? t('pvp.handLeft') : t('pvp.handRight');
+  }
+  applyHand();
 
   const pv = () => store.state.pv;
   const today = () => utcDayOf(Date.now());
@@ -161,7 +179,15 @@ export function createPvp({ store, tracker }) {
     renderOpponentCard();
     el.startBot.disabled = e < 1;
     el.openStats.textContent = t('pvp.statsOpen', { n: freePoints() });
+    applyHand();
   }
+  el.handToggle?.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    hand = hand === 'left' ? 'right' : 'left';
+    saveHand(hand);
+    applyHand();
+    hapticSelection();
+  });
   function renderOpponentCard() {
     const persona = SIM.personaOf(opp.persona);
     el.oppPreview.clearRect(0, 0, 14, 20);
@@ -320,6 +346,7 @@ export function createPvp({ store, tracker }) {
       }
     }
     updateFightHud();
+    updateThrowRing();
     draw();
     if (match.phase === 'end' && !resultShown) { resultShown = true; onDuelEnd(); }
     rafId = requestAnimationFrame(loop);
@@ -338,51 +365,77 @@ export function createPvp({ store, tracker }) {
     else el.giantBtn.classList.remove('show');
   }
 
-  // ---------- input ----------
-  const colOf = (clientX) => {
-    const r = el.arenaBox.getBoundingClientRect();
-    return Math.max(0, Math.min(2, Math.floor(((clientX - r.left) / r.width) * 3)));
-  };
-  function queue(code, extra) {
-    pendingActions.push([code, extra]);
-    if (match) SIM.logMe(match, code, extra);
+  // ---------- input (v1.081: pointer events, touch-action:none on every control — no 300 ms
+  // delay, no text selection, no double-tap zoom; every handler is scoped to its own element/
+  // pointerId so a THROW hold and a ◀ tap from a second finger don't interfere, HANDOFF.md's
+  // "never rebuild on a timer" rule kept — the DOM is built once in index.html). ----------
+  function queue(code) {
+    pendingActions.push(code);
+    if (match) SIM.logMe(match, code);
   }
   function hideHint() { if (!hintShown) { hintShown = true; el.hint.hidden = true; } }
+
+  // Swipe-to-move on the field (§3): tap does nothing now (auto-aim replaced tap-a-lane), only a
+  // ≥24px horizontal drag steps a lane, same threshold as before.
   el.arenaBox.addEventListener('pointerdown', (e) => {
     if (!match || match.phase === 'end' || e.target.closest('button')) return;
-    ptr = { id: e.pointerId, x: e.clientX, t: performance.now(), lane: colOf(e.clientX), moved: false };
-    el.cols[ptr.lane]?.classList.add('flash');
+    movePtr = { id: e.pointerId, x: e.clientX, moved: false };
   });
   el.arenaBox.addEventListener('pointermove', (e) => {
-    if (!ptr || e.pointerId !== ptr.id || ptr.moved) return;
-    const dx = e.clientX - ptr.x;
+    if (!movePtr || e.pointerId !== movePtr.id || movePtr.moved) return;
+    const dx = e.clientX - movePtr.x;
     if (Math.abs(dx) >= 24) {
-      ptr.moved = true;
-      queue(dx > 0 ? SIM.CODE.STEP_R : SIM.CODE.STEP_L);
+      movePtr.moved = true;
+      queue(dx > 0 ? SIM.CODE.MOVE_R : SIM.CODE.MOVE_L);
+      hideHint();
     }
   });
-  const endPtr = (e) => {
-    if (!ptr || e.pointerId !== ptr.id) return;
-    el.cols.forEach((c) => c.classList.remove('flash'));
-    if (!ptr.moved && match && match.phase !== 'end') {
-      const heldMs = performance.now() - ptr.t;
-      const chargeTicks = heldMs >= 200 ? Math.min(SIM.CHARGE_MAX_TICKS, Math.round((heldMs / 1000) * SIM.TICK_HZ)) : 0;
-      queue(SIM.CODE.THROW + ptr.lane, chargeTicks);
-      hideHint();
-      play('throw', { intensity: 0.3 });
-    }
-    ptr = null;
-  };
-  el.arenaBox.addEventListener('pointerup', endPtr);
-  el.arenaBox.addEventListener('pointercancel', endPtr);
-  el.btnLeft.addEventListener('pointerdown', (e) => { e.preventDefault(); queue(SIM.CODE.STEP_L); hideHint(); });
-  el.btnRight.addEventListener('pointerdown', (e) => { e.preventDefault(); queue(SIM.CODE.STEP_R); hideHint(); });
+  const endMovePtr = (e) => { if (movePtr && e.pointerId === movePtr.id) movePtr = null; };
+  el.arenaBox.addEventListener('pointerup', endMovePtr);
+  el.arenaBox.addEventListener('pointercancel', endMovePtr);
+
+  el.btnLeft.addEventListener('pointerdown', (e) => { e.preventDefault(); queue(SIM.CODE.MOVE_L); hideHint(); });
+  el.btnRight.addEventListener('pointerdown', (e) => { e.preventDefault(); queue(SIM.CODE.MOVE_R); hideHint(); });
   const duckOn = (e) => { e.preventDefault(); queue(SIM.CODE.DUCK_ON); el.btnDuck.classList.add('on'); hideHint(); };
   const duckOff = () => { queue(SIM.CODE.DUCK_OFF); el.btnDuck.classList.remove('on'); };
   el.btnDuck.addEventListener('pointerdown', duckOn);
   ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => el.btnDuck.addEventListener(ev, duckOff));
-  el.giantBtn.addEventListener('click', () => { queue(SIM.CODE.GIANT); play('giant', { intensity: 0.7 }); });
+
+  // THROW button (§2): tap = quick throw, hold = charges the ring 0→max over CHARGE_MAX_TICKS
+  // (~0.8s); release throws. Charge amount is derived sim-side from the tick gap between
+  // THROW_START/THROW_RELEASE (§9 — never trusts a client-reported duration). Pointer capture
+  // keeps the hold alive even if the finger drifts off the round button's edge.
+  el.btnThrow.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    if (!match || match.phase === 'end' || throwHold) return;
+    try { el.btnThrow.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    throwHold = { id: e.pointerId, buzzed: false };
+    queue(SIM.CODE.THROW_START);
+    hideHint();
+  });
+  const throwRelease = (e) => {
+    if (!throwHold || e.pointerId !== throwHold.id) return;
+    throwHold = null;
+    queue(SIM.CODE.THROW_RELEASE);
+    play('throw', { intensity: 0.3 });
+  };
+  el.btnThrow.addEventListener('pointerup', throwRelease);
+  el.btnThrow.addEventListener('pointercancel', throwRelease);
+
+  el.giantBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); queue(SIM.CODE.GIANT); play('giant', { intensity: 0.7 }); });
   el.overGo.addEventListener('click', () => showScreen('result'));
+
+  function updateThrowRing() {
+    if (!el.throwRing) return;
+    let frac = 0;
+    if (match && match.me.chargeStartTick >= 0) {
+      frac = Math.min(1, (match.tick - match.me.chargeStartTick) / SIM.CHARGE_MAX_TICKS);
+    }
+    const c = 2 * Math.PI * 44;
+    el.throwRing.style.strokeDasharray = `${c}`;
+    el.throwRing.style.strokeDashoffset = `${c * (1 - frac)}`;
+    if (frac >= 1 && throwHold && !throwHold.buzzed) { throwHold.buzzed = true; haptic('rigid'); }
+  }
 
   // ---------- draw (ported from gamification/pvp-mockup.html, real sprites/kid-art) ----------
   function kidAnim(k) {
@@ -393,7 +446,7 @@ export function createPvp({ store, tracker }) {
     }
     if (k.animState === 'hit' && k.animTicksLeft > 0) return [`kid_${view}_hit`, k.animTicksLeft > 9 ? 0 : 1];
     if (k.duck) return [`kid_${view}_duck`, Math.floor(match.tick / 30)];
-    if (k === match.me && ptr && !ptr.moved && performance.now() - ptr.t >= 200) return [`kid_${view}_windup`, 0];
+    if (k === match.me && k.chargeStartTick >= 0) return [`kid_${view}_windup`, 0];
     if (k.animState === 'throw' && k.animTicksLeft > 0) return [`kid_${view}_throw`, k.animTicksLeft > 6 ? 0 : 1];
     return [`kid_${view}_idle`, Math.floor(match.tick / 30 + (k === match.op ? 1 : 0))];
   }
@@ -442,8 +495,8 @@ export function createPvp({ store, tracker }) {
           if (isMe) {
             drawYouMarker(g, name, fr % SPRITES[name].frames.length, x, k.y, look, Math.floor(match.tick / 30) % 2);
             if (match.phase === 'fight' || match.phase === 'sudden') {
-              if (ptr && !ptr.moved && performance.now() - ptr.t >= 200) {
-                const frac = Math.min(1, (performance.now() - ptr.t - 200) / 800);
+              if (k.chargeStartTick >= 0) {
+                const frac = Math.min(1, (match.tick - k.chargeStartTick) / SIM.CHARGE_MAX_TICKS);
                 ring(x, k.y - 8, 11, frac, PALETTE.c, PALETTE.K);
               } else if (k.cdTicks > 0) {
                 ring(x, k.y - 8, 11, 1 - k.cdTicks / Math.round(k.d.cd * SIM.TICK_HZ), PALETTE.Y, PALETTE.K);
@@ -606,12 +659,15 @@ export function createPvp({ store, tracker }) {
 
   window.addEventListener('keydown', (e) => {
     if (!open || screen !== 'fight' || !match) return;
-    if (e.key === 'ArrowLeft' || e.key === 'a') queue(SIM.CODE.STEP_L);
-    if (e.key === 'ArrowRight' || e.key === 'd') queue(SIM.CODE.STEP_R);
+    if (e.key === 'ArrowLeft' || e.key === 'a') queue(SIM.CODE.MOVE_L);
+    if (e.key === 'ArrowRight' || e.key === 'd') queue(SIM.CODE.MOVE_R);
     if (e.key === 's' || e.key === 'ArrowDown') { queue(SIM.CODE.DUCK_ON); el.btnDuck.classList.add('on'); }
-    if ('123'.includes(e.key)) queue(SIM.CODE.THROW + (+e.key - 1), e.shiftKey ? SIM.CHARGE_MIN_TICKS + 4 : 0);
+    if (e.key === ' ' && !kbThrowHeld) { kbThrowHeld = true; queue(SIM.CODE.THROW_START); } // desktop debug: space = throw button
   });
-  window.addEventListener('keyup', (e) => { if (e.key === 's' || e.key === 'ArrowDown') { queue(SIM.CODE.DUCK_OFF); el.btnDuck.classList.remove('on'); } });
+  window.addEventListener('keyup', (e) => {
+    if (e.key === 's' || e.key === 'ArrowDown') { queue(SIM.CODE.DUCK_OFF); el.btnDuck.classList.remove('on'); }
+    if (e.key === ' ' && kbThrowHeld) { kbThrowHeld = false; queue(SIM.CODE.THROW_RELEASE); }
+  });
 
   return {
     open: openOverlay,
@@ -627,6 +683,6 @@ export function createPvp({ store, tracker }) {
     forceWin() { if (match) { if (match.phase === 'count') match.phase = 'fight'; match.me.hp = 100; match.op.hp = 0; SIM.tick(match, []); } },
     setHp(meHp, opHp) { if (match) { match.me.hp = meHp; match.op.hp = opHp; } },
     setWind(v) { if (match) { match.wind = v; match._calm = false; } },
-    run(sec) { const n = Math.round(sec * SIM.TICK_HZ); for (let i = 0; i < n && match?.phase !== 'end'; i++) SIM.tick(match, []); updateFightHud(); draw(); },
+    run(sec) { const n = Math.round(sec * SIM.TICK_HZ); for (let i = 0; i < n && match?.phase !== 'end'; i++) SIM.tick(match, []); updateFightHud(); updateThrowRing(); draw(); },
   };
 }

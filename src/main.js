@@ -5,28 +5,28 @@
 //             ?feeds=binance,bybit,coinbase,liquidations  only open these sockets (fallback testing)
 //             ?delay=binance:5000  open a venue's socket late (tests late joiners in AGG)
 //             ?progtest=1  allow progress tracking with test params; uses test_-prefixed storage keys
-import { createMarket, SOURCES } from './market/market.js?v=c67d170d';
-import { createSourceMenu } from './source-menu.js?v=c67d170d';
-import { createRound } from './game/round.js?v=c67d170d';
-import { createScene, W } from './game/scene.js?v=c67d170d';
-import { createRenderer, fitCanvas } from './game/renderer.js?v=c67d170d';
-import { preloadAll } from './game/sprites-cache.js?v=c67d170d';
-import { createHud } from './hud.js?v=c67d170d';
-import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=c67d170d';
+import { createMarket, SOURCES } from './market/market.js?v=17c4945d';
+import { createSourceMenu } from './source-menu.js?v=17c4945d';
+import { createRound } from './game/round.js?v=17c4945d';
+import { createScene, W } from './game/scene.js?v=17c4945d';
+import { createRenderer, fitCanvas } from './game/renderer.js?v=17c4945d';
+import { preloadAll } from './game/sprites-cache.js?v=17c4945d';
+import { createHud } from './hud.js?v=17c4945d';
+import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=17c4945d';
 import {
   initTelegram, haptic, hapticSelection, notify, isTelegram, cloudStorage, telegramUser, isAppActive, onAppActiveChange,
-} from './tg.js?v=c67d170d';
-import { createStore } from './progress/store.js?v=c67d170d';
-import { createTracker } from './progress/tracker.js?v=c67d170d';
-import { createProfileUi } from './profile-ui.js?v=c67d170d';
-import { createForecasts } from './progress/forecast.js?v=c67d170d';
-import { createTutorial } from './tutorial.js?v=c67d170d';
-import { APP_VERSION, BUILD } from './version.js?v=c67d170d';
-import { createCosmetics } from './wardrobe-ui.js?v=c67d170d';
-import { createPvp } from './pvp/ui.js?v=c67d170d';
-import { markerTopY } from './game/kid-art.js?v=c67d170d';
-import { viewOf } from './cosmetics.js?v=c67d170d';
-import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=c67d170d';
+} from './tg.js?v=17c4945d';
+import { createStore } from './progress/store.js?v=17c4945d';
+import { createTracker } from './progress/tracker.js?v=17c4945d';
+import { createProfileUi } from './profile-ui.js?v=17c4945d';
+import { createForecasts } from './progress/forecast.js?v=17c4945d';
+import { createTutorial } from './tutorial.js?v=17c4945d';
+import { APP_VERSION, BUILD } from './version.js?v=17c4945d';
+import { createCosmetics } from './wardrobe-ui.js?v=17c4945d';
+import { createPvp } from './pvp/ui.js?v=17c4945d';
+import { markerTopY } from './game/kid-art.js?v=17c4945d';
+import { viewOf } from './cosmetics.js?v=17c4945d';
+import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=17c4945d';
 
 // ---------- config ----------
 const params = new URLSearchParams(location.search);
@@ -529,13 +529,15 @@ rafId = requestAnimationFrame(frame);
 // PvP determinism unit test (PVP-SPEC.md §9, §11 acceptance): same seed + input log replayed
 // twice on src/pvp/sim.js (no DOM) must produce the same outcome and HP both times.
 if (PVPTEST) {
-  import('./pvp/sim.js?v=c67d170d').then((SIM) => {
+  import('./pvp/sim.js?v=17c4945d').then((SIM) => {
     const cfg = {
       seed: 305441741, myPoints: [2, 1, 2, 0, 1], botTier: 'T3', botPersona: 'kirpich',
       botPoints: [1, 2, 1, 1, 0], y: { me: 220, op: 90 }, windSeries: [[0, 0.02], [300, -0.03], [600, 0.01]],
     };
-    // a hand-built log: step, throw lane 1 (charged), duck on/off, throw lane 0, giant attempt
-    const log = [[30, 4, 0], [40, 1], [50, 4 + 1, 20], [30, 2], [25, 3], [45, 0], [20, 4 + 2, 0], [60, 8]];
+    // a hand-built log (v1.081 codes): move, quick throw, charged throw, duck on/off, move,
+    // quick throw, giant attempt. Lane + chargeTicks are never logged directly — chargeTicks is
+    // the tick gap between THROW_START(4) and THROW_RELEASE(5), lane comes from autoAimLane.
+    const log = [[30, 4], [1, 5], [40, 1], [50, 4], [20, 5], [30, 2], [25, 3], [45, 0], [20, 4], [1, 5], [60, 6]];
     const a = SIM.runReplay(cfg, log);
     const b = SIM.runReplay(cfg, log);
     const same = a.tick === b.tick && a.me.hp === b.me.hp && a.op.hp === b.op.hp

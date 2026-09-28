@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Press+Start+2P&family=Tiny5&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=c67d170d">
+  <link rel="stylesheet" href="styles.css?v=17c4945d">
 </head>
 <body>
   <div id="app" class="app">
@@ -267,6 +267,12 @@
           </div>
         </div>
       </div>
+      <div class="pvp-sec">
+        <div class="panel pvp-panel pvp-row pvp-space">
+          <span class="pvp-d8" data-i18n="pvp.handedness"></span>
+          <button class="btn pvp-btn" id="pvp-hand-toggle" type="button" style="width:auto"></button>
+        </div>
+      </div>
       <div class="pvp-menu">
         <button class="btn pvp-btn primary" id="pvp-start-bot" type="button"><span data-i18n="pvp.withBot"></span><span class="pvp-d8" data-i18n="pvp.minusEnergy"></span></button>
         <button class="btn pvp-btn" id="pvp-start-practice" type="button"><span data-i18n="pvp.practice"></span><span class="pvp-d8 pvp-dim" data-i18n="pvp.noReward"></span></button>
@@ -285,17 +291,27 @@
       </div>
       <div class="pvp-arena" id="pvp-arena-box">
         <canvas id="pvp-arena" width="192" height="300"></canvas>
-        <div class="pvp-cols" id="pvp-cols"><div></div><div></div><div></div></div>
         <div class="pvp-hint" id="pvp-hint"></div>
         <button class="pvp-giantbtn" id="pvp-giant-btn" type="button"><img class="px-icon" id="pvp-giant-icon" alt=""><span data-i18n="pvp.giant"></span></button>
         <div class="pvp-over" id="pvp-over"><div class="pvp-band" id="pvp-over-band"></div><button class="btn pvp-btn primary" id="pvp-over-go" type="button" data-i18n="pvp.toResult"></button></div>
       </div>
-      <div class="pvp-ctrl">
+      <div class="pvp-ctrl" id="pvp-ctrl">
         <div class="pvp-mebars"><img class="px-icon" id="pvp-me-icon" alt=""><div class="pvp-hp g"><i id="pvp-hp-me" style="width:100%"></i><b id="pvp-hp-me-t">100</b></div><div class="pvp-stam"><i id="pvp-stam"></i></div></div>
-        <div class="pvp-btns">
-          <button class="btn pvp-btn" id="pvp-btn-left" type="button">◀</button>
-          <button class="btn pvp-btn pvp-duck" id="pvp-btn-duck" type="button"><span data-i18n="pvp.duck"></span><br><span class="pvp-dim" data-i18n="pvp.holdIt"></span></button>
-          <button class="btn pvp-btn" id="pvp-btn-right" type="button">▶</button>
+        <div class="pvp-ctrl-row" id="pvp-ctrl-row">
+          <div class="pvp-move-cluster">
+            <div class="pvp-move-pair">
+              <button class="btn pvp-btn pvp-movebtn" id="pvp-btn-left" type="button">◀</button>
+              <button class="btn pvp-btn pvp-movebtn" id="pvp-btn-right" type="button">▶</button>
+            </div>
+            <button class="btn pvp-btn pvp-duck" id="pvp-btn-duck" type="button"><span data-i18n="pvp.duck"></span><br><span class="pvp-dim" data-i18n="pvp.holdIt"></span></button>
+          </div>
+          <button class="pvp-throwbtn" id="pvp-btn-throw" type="button">
+            <svg class="pvp-throwring" viewBox="0 0 100 100" aria-hidden="true">
+              <circle class="bg" cx="50" cy="50" r="44"></circle>
+              <circle class="fg" id="pvp-throw-ring-fg" cx="50" cy="50" r="44"></circle>
+            </svg>
+            <span class="pvp-throwbtn-inner"><img class="px-icon" id="pvp-throw-icon" alt=""><span data-i18n="pvp.throw"></span></span>
+          </button>
         </div>
       </div>
     </section>
@@ -337,6 +353,6 @@
     </section>
   </div>
 
-  <script type="module" src="src/main.js?v=c67d170d"></script>
+  <script type="module" src="src/main.js?v=17c4945d"></script>
 </body>
 </html>

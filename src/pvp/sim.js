@@ -23,12 +23,16 @@ export const POWER_SPEED = 110;  // px/s, power + giant
 export const GIANT_DMG = 20;
 export const STAM_COST = { power: 35, step: 6, duckPerSec: 14 };
 export const CHARGE_MIN_TICKS = Math.round(0.2 * TICK_HZ); // 200 ms hold → power throw
-export const CHARGE_MAX_TICKS = Math.round(1.0 * TICK_HZ);
+export const CHARGE_MAX_TICKS = Math.round(0.8 * TICK_HZ); // v1.081: ring fills over ~0.8 s
 
-// ---------- input log codes (§9) ----------
-// [dtTicks, code] or, for a throw (code 4..6), [dtTicks, code, chargeTicks].
+// ---------- input log codes (v1.081, §9) ----------
+// Every entry is [dtTicks, code] — no per-entry payload. A throw is two entries: THROW_START
+// when the hold begins, THROW_RELEASE when it ends; the tick gap between them IS the charge
+// (chargeTicks), so replay never has to trust a client-reported number. Lane targeting isn't
+// logged either — it's computed deterministically from the foe's tracked lane + the seeded RNG
+// (autoAimLane below), identically for the player's throw button and the bot's AI.
 export const CODE = {
-  STEP_L: 0, STEP_R: 1, DUCK_ON: 2, DUCK_OFF: 3, THROW: 4 /* +lane */, GIANT: 8,
+  MOVE_L: 0, MOVE_R: 1, DUCK_ON: 2, DUCK_OFF: 3, THROW_START: 4, THROW_RELEASE: 5, GIANT: 6,
 };
 
 // ---------- seeded PRNG ----------
@@ -56,7 +60,11 @@ export function deriveStats(points) {
   return {
     cd: 1 / (1 + b[0]),
     dmg: 10 * (1 + b[1]),
+    // v1.081: accuracy still sets the lateral scatter around the lane centre (sigma, unchanged
+    // formula), and now also feeds leadChance — the odds an auto-aimed throw reads a step in
+    // progress and targets the lane the foe is moving INTO instead of the one they're leaving.
     sigma: 5.5 - 0.12 * eff(points[2]),
+    leadChance: Math.min(0.5, 0.05 * eff(points[2])),
     step: 0.26 * (1 - 1.5 * b[3]),
     duckIn: 0.12 * (1 - 1.5 * b[3]),
     stamMax: 100 * (1 + 2 * b[4]),
@@ -66,13 +74,16 @@ export function deriveStats(points) {
 export const ZERO_POINTS = [0, 0, 0, 0, 0];
 
 // ---------- bots (§6.1, §6.2) ----------
-// react: [meanMs, sigmaMs]; dodge/misaim/power/lapse are 0..1 probabilities.
+// react: [meanMs, sigmaMs]; dodge/power/lapse are 0..1 probabilities. `predict` (T3+) is an
+// extra lead bias layered onto the bot's own accuracy-driven leadChance (v1.081, see autoAimLane
+// below) — it's what §6.1 calls "упреждение": the bot reads your step, same mechanism the
+// player's own accuracy stat drives, just with a tier-scaled head start.
 export const BOT_TIERS = {
-  T1: { react: [650, 150], dodge: 0.25, misaim: 0.30, power: 0, giant: false, lapse: 0.15, gapTicks: 50 },
-  T2: { react: [500, 120], dodge: 0.45, misaim: 0.15, power: 0.15, giant: true, lapse: 0.10, gapTicks: 40 },
-  T3: { react: [400, 100], dodge: 0.65, misaim: 0, power: 0.30, giant: true, lapse: 0.07, gapTicks: 32, predict: 0.3 },
-  T4: { react: [320, 80], dodge: 0.80, misaim: 0, power: 0.40, giant: true, lapse: 0.05, gapTicks: 24, predict: 0.6 },
-  T5: { react: [260, 60], dodge: 0.88, misaim: 0, power: 0.45, giant: true, lapse: 0.03, gapTicks: 20, predict: 0.75, feint: true },
+  T1: { react: [650, 150], dodge: 0.25, power: 0, giant: false, lapse: 0.15, gapTicks: 50 },
+  T2: { react: [500, 120], dodge: 0.45, power: 0.15, giant: true, lapse: 0.10, gapTicks: 40 },
+  T3: { react: [400, 100], dodge: 0.65, power: 0.30, giant: true, lapse: 0.07, gapTicks: 32, predict: 0.3 },
+  T4: { react: [320, 80], dodge: 0.80, power: 0.40, giant: true, lapse: 0.05, gapTicks: 24, predict: 0.6 },
+  T5: { react: [260, 60], dodge: 0.88, power: 0.45, giant: true, lapse: 0.03, gapTicks: 20, predict: 0.75, feint: true },
 };
 export const TIER_ORDER = ['T1', 'T2', 'T3', 'T4', 'T5'];
 
@@ -201,6 +212,17 @@ export function setDuck(state, k, on) {
   if (on && k.stepTicksLeft > 0) return;
   k.duck = on;
 }
+// ---------- auto-aim (v1.081, PVP-SPEC.md §3 addendum) ----------
+// A throw always targets the lane the foe occupies right now: while they're mid-step it's the
+// lane they're leaving (fromLane) — they haven't actually arrived in the new one yet, so a dodge
+// in progress isn't punished for free. With probability `lead` (driven by the thrower's own
+// accuracy stat, §4.2, d.leadChance) the aim instead reads the step and targets the lane they're
+// moving INTO, catching an early dodge. The player's throw button and the bot's AI both call this
+// exact function — "the bot uses exactly the same auto-aim" (owner request).
+export function autoAimLane(state, target, lead) {
+  if (target.stepTicksLeft > 0) return state.rnd() < lead ? target.lane : target.fromLane;
+  return target.lane;
+}
 export function doThrow(state, k, lane, chargeTicks = 0) {
   if (state.phase !== 'fight' && state.phase !== 'sudden') return false;
   if (k.cdTicks > 0 || k.duck || k.stepTicksLeft > 0) return false;
@@ -290,12 +312,8 @@ function botThink(state) {
   if (b.combo >= 3 && b.giants < 2 && !state.giant && T.giant) { summonGiant(state, b); return; }
   const gap = habit.aggressive ? Math.round(T.gapTicks * 0.6) : T.gapTicks;
   if (b.cdTicks <= 0 && !b.duck && b.stepTicksLeft <= 0 && state.tick > B.nextThrowTick) {
-    let lane;
-    if (habit.mirror) lane = state.me.lane;
-    else if (habit.center) lane = state.rnd() < 0.5 ? 1 : state.me.lane;
-    else if (state.rnd() < T.misaim) lane = Math.floor(state.rnd() * 3);
-    else if (T.predict && state.rnd() < T.predict) lane = state.me.stepTicksLeft > 0 ? state.me.lane : state.me.lane;
-    else lane = state.me.lane;
+    const lead = Math.min(0.9, (T.predict || 0) + b.d.leadChance);
+    const lane = autoAimLane(state, state.me, lead);
     const powerChance = habit.power ? T.power * 1.6 : habit.sniper ? T.power * 0.5 : T.power;
     const chargeTicks = state.rnd() < powerChance ? CHARGE_MIN_TICKS + 4 : 0;
     doThrow(state, b, lane, chargeTicks);
@@ -305,7 +323,7 @@ function botThink(state) {
   }
 }
 
-// ---------- one 1/60 s tick. meActions: decoded [code, extra?] for this tick (may be empty). ----------
+// ---------- one 1/60 s tick. meActions: decoded [code, ...] for this tick (may be empty). ----------
 export function tick(state, meActions = []) {
   if (state.phase === 'end') return;
   state.tick++;
@@ -315,7 +333,7 @@ export function tick(state, meActions = []) {
     if (state.countTicks <= 0) state.phase = 'fight';
     return;
   }
-  for (const [code, extra] of meActions) applyCode(state, state.me, code, extra);
+  for (const code of meActions) applyCode(state, state.me, code);
   botThink(state);
 
   for (const k of [state.me, state.op]) {
@@ -368,13 +386,19 @@ export function tick(state, meActions = []) {
   }
 }
 
-function applyCode(state, k, code, extra) {
-  if (code === CODE.STEP_L) doStep(state, k, -1);
-  else if (code === CODE.STEP_R) doStep(state, k, 1);
+function applyCode(state, k, code) {
+  if (code === CODE.MOVE_L) doStep(state, k, -1);
+  else if (code === CODE.MOVE_R) doStep(state, k, 1);
   else if (code === CODE.DUCK_ON) setDuck(state, k, true);
   else if (code === CODE.DUCK_OFF) setDuck(state, k, false);
-  else if (code === 8) summonGiant(state, k);
-  else if (code >= 4 && code <= 6) doThrow(state, k, code - 4, extra || 0);
+  else if (code === CODE.GIANT) summonGiant(state, k);
+  else if (code === CODE.THROW_START) k.chargeStartTick = state.tick;
+  else if (code === CODE.THROW_RELEASE) {
+    if (k.chargeStartTick < 0) return;
+    const chargeTicks = Math.min(CHARGE_MAX_TICKS, Math.max(0, state.tick - k.chargeStartTick));
+    k.chargeStartTick = -1;
+    doThrow(state, k, autoAimLane(state, foe(state, k), k.d.leadChance), chargeTicks);
+  }
 }
 
 function endMatch(state, winner) {
@@ -393,21 +417,21 @@ function endMatch(state, winner) {
 // before the tick that will actually apply it). state.tick is the last *processed* tick, and
 // live play always applies a freshly queued action on the next tick() call, so the action's
 // target tick is state.tick + 1 — exactly what runReplay()/decodeLog() below look up.
-export function logMe(state, code, extra) {
+export function logMe(state, code) {
   const targetTick = state.tick + 1;
   const dt = targetTick - state.lastLogTick;
   state.lastLogTick = targetTick;
-  state.log.push(extra != null ? [dt, code, extra] : [dt, code]);
+  state.log.push([dt, code]);
 }
 
-// Decode the log into a per-tick action map { tick: [[code, extra], ...] }.
+// Decode the log into a per-tick action map { tick: [code, ...] }.
 export function decodeLog(log) {
   const byTick = new Map();
   let t = 0;
-  for (const entry of log) {
-    t += entry[0];
+  for (const [dt, code] of log) {
+    t += dt;
     const arr = byTick.get(t) || [];
-    arr.push([entry[1], entry[2]]);
+    arr.push(code);
     byTick.set(t, arr);
   }
   return byTick;
