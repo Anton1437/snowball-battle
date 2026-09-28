@@ -2,9 +2,9 @@
 // duel entry, wardrobe header, profile header). Each topic is a pixel illustration (real sprite
 // icons), a title, a few short lines and one concrete example. Built once; content is swapped in
 // place, never rebuilt — same pattern as the tutorial cards.
-import { t } from './i18n.js?v=0d20a97d';
-import { spriteDataUrl } from './game/sprites-cache.js?v=0d20a97d';
-import { backButton } from './tg.js?v=0d20a97d';
+import { t } from './i18n.js?v=461444cd';
+import { spriteDataUrl } from './game/sprites-cache.js?v=461444cd';
+import { backButton } from './tg.js?v=461444cd';
 
 const $ = (id) => document.getElementById(id);
 

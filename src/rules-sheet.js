@@ -1,8 +1,8 @@
 // «Правила» (v1.084): the full rules screen, opened from the settings sheet. Collapsible
 // <details> chapters (reusing the same accordion the wardrobe uses) plus a short FAQ. Static
 // text per language; rebuilt only on open() and on a language change, never on a timer.
-import { t } from './i18n.js?v=0d20a97d';
-import { backButton } from './tg.js?v=0d20a97d';
+import { t } from './i18n.js?v=461444cd';
+import { backButton } from './tg.js?v=461444cd';
 
 const $ = (id) => document.getElementById(id);
 const CHAPTERS = ['field', 'rounds', 'forecasts', 'side', 'duels', 'progress', 'fair'];

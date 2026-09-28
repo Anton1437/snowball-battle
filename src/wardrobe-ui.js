@@ -4,15 +4,15 @@
 //
 // Interactive elements are built ONCE and updated in place (never rebuilt on a timer — iOS
 // swallows taps on nodes replaced mid-gesture).
-import { t, getLang } from './i18n.js?v=0d20a97d';
-import { spriteDataUrl, makeCanvas, UI } from './game/sprites-cache.js?v=0d20a97d';
-import { ACHIEVEMENTS, levelOf } from './progress/achievements.js?v=0d20a97d';
+import { t, getLang } from './i18n.js?v=461444cd';
+import { spriteDataUrl, makeCanvas, UI } from './game/sprites-cache.js?v=461444cd';
+import { ACHIEVEMENTS, levelOf } from './progress/achievements.js?v=461444cd';
 import {
   ITEMS, SLOTS, SLOT_KEY, byId, isUnlocked, unlockedMask, buildLook, avatarViewOf, avatarSpriteName,
   trailColors, frameColors, LOOK_IDS, isLookUnlocked, lookReq, lookItemIds,
-} from './cosmetics.js?v=0d20a97d';
-import { drawKidLook } from './game/kid-art.js?v=0d20a97d';
-import * as ART from './sprites.js?v=0d20a97d';
+} from './cosmetics.js?v=461444cd';
+import { drawKidLook } from './game/kid-art.js?v=461444cd';
+import * as ART from './sprites.js?v=461444cd';
 
 // Avatar canvas (logical px): room for a crown above the hat, and (v1.08) for a pet standing
 // 12 px to the right of the kid's feet and a back item's hem below it.

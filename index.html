@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Press+Start+2P&family=Tiny5&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=0d20a97d">
+  <link rel="stylesheet" href="styles.css?v=461444cd">
 </head>
 <body>
   <div id="app" class="app">
@@ -55,7 +55,13 @@
         <div id="slot-top" class="slot-top"></div>
       </div>
 
-      <div id="hud-bottom" class="hud-bottom"></div>
+      <div id="hud-bottom" class="hud-bottom">
+        <button id="duel-cta" class="duel-cta" type="button" aria-haspopup="dialog" hidden>
+          <img id="duel-cta-icon" class="px-icon" alt="">
+          <span class="duel-cta-title" data-i18n="pvp.cta"></span>
+          <span class="duel-cta-meter"><span id="duel-cta-pips" class="duel-cta-pips" aria-hidden="true"></span><span id="duel-cta-count" class="duel-cta-count"></span></span>
+        </button>
+      </div>
 
       <div id="banner" class="banner" hidden aria-live="assertive">
         <div class="band"><div id="banner-title" class="banner-title"></div><div id="banner-sub" class="banner-sub"></div></div>
@@ -408,6 +414,6 @@
     </div>
   </div>
 
-  <script type="module" src="src/main.js?v=0d20a97d"></script>
+  <script type="module" src="src/main.js?v=461444cd"></script>
 </body>
 </html>

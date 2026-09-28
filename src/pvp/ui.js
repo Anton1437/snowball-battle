@@ -1,19 +1,19 @@
 // PvP duels UI (gamification/PVP-SPEC.md §11): entry / fight / result / stats screens over the
 // existing field canvas. DOM is built once in index.html and only mutated in place (HANDOFF.md
 // timers rule). Input is touch/pointer, no 300 ms delay (pointerdown/up, not click, drives throws).
-import { t } from '../i18n.js?v=0d20a97d';
+import { t } from '../i18n.js?v=461444cd';
 import {
   SPRITES, PALETTE, frames, drawSprite, spriteDataUrl,
-} from '../game/sprites-cache.js?v=0d20a97d';
-import { drawKidLook, drawYouMarker } from '../game/kid-art.js?v=0d20a97d';
-import { buildLook } from '../cosmetics.js?v=0d20a97d';
-import { levelOf } from '../progress/achievements.js?v=0d20a97d';
-import { utcDayOf } from '../progress/store.js?v=0d20a97d';
+} from '../game/sprites-cache.js?v=461444cd';
+import { drawKidLook, drawYouMarker } from '../game/kid-art.js?v=461444cd';
+import { buildLook } from '../cosmetics.js?v=461444cd';
+import { levelOf } from '../progress/achievements.js?v=461444cd';
+import { utcDayOf } from '../progress/store.js?v=461444cd';
 import {
   haptic, hapticSelection, notify, isAppActive, onAppActiveChange,
-} from '../tg.js?v=0d20a97d';
-import { play } from '../audio.js?v=0d20a97d';
-import * as SIM from './sim.js?v=0d20a97d';
+} from '../tg.js?v=461444cd';
+import { play } from '../audio.js?v=461444cd';
+import * as SIM from './sim.js?v=461444cd';
 
 const $ = (id) => document.getElementById(id);
 const ENERGY_MAX = 10;
@@ -59,12 +59,18 @@ export function createPvp({ store, tracker, firstSteps }) {
     free: $('pvp-free'), statsNote: $('pvp-stats-note'), statList: $('pvp-stat-list'),
     respec: $('pvp-respec'), respecNote: $('pvp-respec-note'),
     hudBtn: $('btn-pvp'), hudIcon: $('btn-pvp-icon'), hudEnergy: $('btn-pvp-energy'),
+    cta: $('duel-cta'), ctaIcon: $('duel-cta-icon'), ctaPips: $('duel-cta-pips'), ctaCount: $('duel-cta-count'),
   };
   const g = el.arena.getContext('2d');
   g.imageSmoothingEnabled = false;
   el.oppPreview.imageSmoothingEnabled = false;
   el.resArt.imageSmoothingEnabled = false;
   el.hudIcon.src = spriteDataUrl('ach_target', 'green', 2); // distinct from the profile button's head icon
+  if (el.cta) {
+    el.ctaIcon.src = el.hudIcon.src;
+    // pips are built once and toggled in place (never rebuild tappable DOM on a timer)
+    for (let i = 0; i < ENERGY_MAX; i++) el.ctaPips.append(document.createElement('i'));
+  }
   el.giantIcon.src = spriteDataUrl('giant_back_idle', 'green', 1);
   if (el.throwIcon) el.throwIcon.src = spriteDataUrl('ball_big', 'green', 2);
 
@@ -127,12 +133,21 @@ export function createPvp({ store, tracker, firstSteps }) {
   }
 
   // ---------- HUD badge (outside the overlay; kept live whether it's open or not) ----------
+  // Phone: the big bottom "Duel" button with an energy meter; wide: the small HUD icon.
   function renderHudBadge() {
-    if (!enabled) { el.hudBtn.hidden = true; return; }
+    if (!enabled) { el.hudBtn.hidden = true; if (el.cta) el.cta.hidden = true; return; }
+    const e = energyNow();
     el.hudBtn.hidden = false;
-    el.hudEnergy.textContent = String(energyNow());
+    el.hudEnergy.textContent = String(e);
+    if (!el.cta) return;
+    el.cta.hidden = false;
+    el.cta.dataset.empty = e === 0 ? '1' : '';
+    [...el.ctaPips.children].forEach((pip, i) => pip.classList.toggle('on', i < e));
+    const count = t('pvp.ctaCount', { n: e, max: ENERGY_MAX });
+    el.ctaCount.textContent = e >= ENERGY_MAX ? count : `${count} · ${t('pvp.regenIn', { m: fmtMs(msToNextEnergy()) })}`;
+    el.cta.setAttribute('aria-label', t('pvp.ctaAria', { n: e, max: ENERGY_MAX }));
   }
-  setInterval(renderHudBadge, 15000);
+  setInterval(() => { if (!document.hidden && !open) renderHudBadge(); }, 1000); // text-only update
 
   // ---------- entry screen ----------
   function pickOpponent() {
@@ -660,8 +675,10 @@ export function createPvp({ store, tracker, firstSteps }) {
     match = null;
     root.hidden = true;
     tracker.setPvpOpen(false);
+    renderHudBadge();
   }
   el.hudBtn.addEventListener('click', openOverlay);
+  if (el.cta) el.cta.addEventListener('click', openOverlay);
   el.close.addEventListener('click', closeOverlay);
   el.startBot.addEventListener('click', () => startDuel(false));
   el.startPractice.addEventListener('click', () => startDuel(true));
@@ -685,7 +702,7 @@ export function createPvp({ store, tracker, firstSteps }) {
     isOpen: () => open,
     setEnabled(v) { enabled = v; renderHudBadge(); },
     setPressureSource(getP, getS) { getPressure = getP; getSource = getS; },
-    relabel() { if (open) showScreen(screen); },
+    relabel() { renderHudBadge(); if (open) showScreen(screen); },
     // QA hooks (PVP-SPEC.md §11 acceptance checklist: "тест через __sb.pvp: forceWin, setHp, setWind")
     get match() { return match; },
     get opp() { return opp; },

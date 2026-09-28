@@ -14,9 +14,9 @@
 // with a one-line how-to and a "Показать" button that jumps to the relevant UI. The pill hides
 // forever once all 5 are done or after a "Скрыть" tap. Built once; content is rewritten (not
 // rebuilt node-by-node) only on open/store-change, never on a timer.
-import { t } from './i18n.js?v=0d20a97d';
-import { spriteDataUrl } from './game/sprites-cache.js?v=0d20a97d';
-import { backButton, hapticSelection } from './tg.js?v=0d20a97d';
+import { t } from './i18n.js?v=461444cd';
+import { spriteDataUrl } from './game/sprites-cache.js?v=461444cd';
+import { backButton, hapticSelection } from './tg.js?v=461444cd';
 
 const $ = (id) => document.getElementById(id);
 const XP_PER_STEP = 15;

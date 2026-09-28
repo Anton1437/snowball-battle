@@ -2,12 +2,12 @@
 // sheet (bottom sheet on phone, centred modal on wide), wide side-panel sections, the
 // round-guess / time-forecast bar, the "backing today" prompt and a shared toast queue.
 // Styling per design/DESIGN.md §8 and §10; readable text uses the --font-read token.
-import { t, getLang, formatPrice } from './i18n.js?v=0d20a97d';
-import { spriteDataUrl, compositeDataUrl } from './game/sprites-cache.js?v=0d20a97d';
-import { ACHIEVEMENTS, RARITY_XP, levelOf } from './progress/achievements.js?v=0d20a97d';
-import { HORIZONS } from './progress/forecast.js?v=0d20a97d';
-import { backButton, hapticSelection, notify } from './tg.js?v=0d20a97d';
-import { createKidCard, createWardrobe, itemPreviewUrl } from './wardrobe-ui.js?v=0d20a97d';
+import { t, getLang, formatPrice } from './i18n.js?v=461444cd';
+import { spriteDataUrl, compositeDataUrl } from './game/sprites-cache.js?v=461444cd';
+import { ACHIEVEMENTS, RARITY_XP, levelOf } from './progress/achievements.js?v=461444cd';
+import { HORIZONS } from './progress/forecast.js?v=461444cd';
+import { backButton, hapticSelection, notify } from './tg.js?v=461444cd';
+import { createKidCard, createWardrobe, itemPreviewUrl } from './wardrobe-ui.js?v=461444cd';
 
 const TOAST_HOLD_MS = 2500;
 const TOAST_POP = [{ transform: 'scale(0.2)' }, { transform: 'scale(1)' }];
