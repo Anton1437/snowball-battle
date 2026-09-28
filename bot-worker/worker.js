@@ -7,6 +7,7 @@
 
 const WEBAPP_URL = 'https://anton1437.github.io/snowball-battle/';
 const APP_LINK = 'https://t.me/snowball_battle_bot/battle';
+const INTRO_VIDEO = 'https://anton1437.github.io/snowball-battle/promo/intro.mp4'; // 20 s, 1080×1920
 
 const TEXT = {
   ru: {
@@ -97,6 +98,12 @@ async function handleUpdate(update, env) {
       text: ru ? `🛠 Админка появится вместе с сервером (v1.1).\nВаш Telegram ID: <code>${id}</code>`
                : `🛠 The admin panel ships with the server (v1.1).\nYour Telegram ID: <code>${id}</code>` });
     return;
+  }
+  if (cmd === '/start') {
+    // Promo video with the welcome text as caption; plain text if Telegram can't fetch the video.
+    const r = await tg(env, 'sendVideo', { chat_id: msg.chat.id, video: INTRO_VIDEO, caption: t.start, parse_mode: 'HTML',
+      width: 1080, height: 1920, duration: 20, supports_streaming: true, reply_markup: keyboard(t) });
+    if (r.ok) return;
   }
   const text = cmd === '/start' ? t.start : (cmd === '/help' || cmd === '/rules') ? t.help : cmd === '/paysupport' ? t.paysupport : t.other;
   await tg(env, 'sendMessage', { chat_id: msg.chat.id, text, parse_mode: 'HTML', reply_markup: keyboard(t) });
