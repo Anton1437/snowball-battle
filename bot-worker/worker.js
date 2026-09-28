@@ -17,6 +17,9 @@ const TEXT = {
     other: 'Игра открывается кнопкой ниже 👇',
     play: '❄️ Играть',
     rules: '📖 Правила',
+    video: '🎬 Как играть — ролик 20 сек',
+    videoCaption: '🎬 Снежная битва за 20 секунд. Жми «Играть» 👇',
+    cmdVideo: 'Ролик: как играть за 20 сек',
     share: '📤 Позвать друга',
     shareText: 'Биткоин как битва в снежки — заходи!',
     short: 'Живой курс BTC как пиксельная битва в снежки ❄️',
@@ -30,6 +33,9 @@ const TEXT = {
     other: 'Open the game with the button below 👇',
     play: '❄️ Play',
     rules: '📖 Rules',
+    video: '🎬 How to play — 20 s video',
+    videoCaption: '🎬 Snowball Battle in 20 seconds. Tap “Play” 👇',
+    cmdVideo: 'Video: how to play in 20 s',
     share: '📤 Invite a friend',
     shareText: 'Bitcoin as a snowball fight — join in!',
     short: 'Live BTC price as a pixel snowball fight ❄️',
@@ -62,9 +68,15 @@ function keyboard(t) {
   return {
     inline_keyboard: [
       [{ text: t.play, web_app: { url: WEBAPP_URL } }],
+      [{ text: t.video, callback_data: 'video' }],
       [{ text: t.rules, callback_data: 'rules' }, { text: t.share, url: share }],
     ],
   };
+}
+
+function sendIntro(env, chatId, t, caption) {
+  return tg(env, 'sendVideo', { chat_id: chatId, video: INTRO_VIDEO, caption, parse_mode: 'HTML',
+    width: 1080, height: 1920, duration: 20, supports_streaming: true, reply_markup: keyboard(t) });
 }
 
 async function handleUpdate(update, env) {
@@ -74,6 +86,10 @@ async function handleUpdate(update, env) {
     if (cq.data === 'rules' && cq.message && cq.message.chat.type === 'private') {
       const t = TEXT[pickLang(cq.from && cq.from.language_code)];
       await tg(env, 'sendMessage', { chat_id: cq.message.chat.id, text: t.help, parse_mode: 'HTML', reply_markup: keyboard(t) });
+    }
+    if (cq.data === 'video' && cq.message && cq.message.chat.type === 'private') {
+      const t = TEXT[pickLang(cq.from && cq.from.language_code)];
+      await sendIntro(env, cq.message.chat.id, t, t.videoCaption);
     }
     return;
   }
@@ -99,10 +115,9 @@ async function handleUpdate(update, env) {
                : `🛠 The admin panel ships with the server (v1.1).\nYour Telegram ID: <code>${id}</code>` });
     return;
   }
-  if (cmd === '/start') {
-    // Promo video with the welcome text as caption; plain text if Telegram can't fetch the video.
-    const r = await tg(env, 'sendVideo', { chat_id: msg.chat.id, video: INTRO_VIDEO, caption: t.start, parse_mode: 'HTML',
-      width: 1080, height: 1920, duration: 20, supports_streaming: true, reply_markup: keyboard(t) });
+  if (cmd === '/start' || cmd === '/video') {
+    // Promo video (welcome text as caption on /start); plain text if Telegram can't fetch the video.
+    const r = await sendIntro(env, msg.chat.id, t, cmd === '/start' ? t.start : t.videoCaption);
     if (r.ok) return;
   }
   const text = cmd === '/start' ? t.start : (cmd === '/help' || cmd === '/rules') ? t.help : cmd === '/paysupport' ? t.paysupport : t.other;
@@ -120,7 +135,7 @@ async function setup(env, origin) {
     const t = TEXT[lang];
     const scope = lang === 'ru' ? { language_code: 'ru' } : {};
     out[`commands_${lang}`] = await tg(env, 'setMyCommands', {
-      commands: [{ command: 'start', description: t.cmdStart }, { command: 'rules', description: t.cmdHelp }], ...scope,
+      commands: [{ command: 'start', description: t.cmdStart }, { command: 'video', description: t.cmdVideo }, { command: 'rules', description: t.cmdHelp }], ...scope,
     });
     out[`short_${lang}`] = await tg(env, 'setMyShortDescription', { short_description: t.short, ...scope });
   }
