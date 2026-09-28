@@ -704,7 +704,7 @@ button, .toggles { pointer-events: auto; }
 .pvp-d8 { font: 8px/1.6 var(--display); }
 .pvp-gold { color: var(--gold); }
 .pvp-ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pvp-progress { height: 10px; margin-top: 5px; border: 2px solid var(--panel); background: var(--border); position: relative; outline: 2px solid var(--border); }
+.pvp-progress { height: 10px; margin: 5px 0 8px; border: 2px solid var(--panel); background: var(--border); position: relative; outline: 2px solid var(--border); }
 .pvp-progress > i { position: absolute; inset: 0 auto 0 0; display: block; background: var(--hi); }
 .pvp-league { display: flex; gap: 10px; align-items: center; }
 .pvp-league .px-icon { width: 32px; height: auto; }

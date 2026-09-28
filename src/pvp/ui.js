@@ -1,20 +1,19 @@
 // PvP duels UI (gamification/PVP-SPEC.md §11): entry / fight / result / stats screens over the
 // existing field canvas. DOM is built once in index.html and only mutated in place (HANDOFF.md
 // timers rule). Input is touch/pointer, no 300 ms delay (pointerdown/up, not click, drives throws).
-import { t } from '../i18n.js?v=17c4945d';
+import { t } from '../i18n.js?v=1c0f08fd';
 import {
   SPRITES, PALETTE, frames, drawSprite, spriteDataUrl,
-} from '../game/sprites-cache.js?v=17c4945d';
-import { drawKidLook, drawYouMarker } from '../game/kid-art.js?v=17c4945d';
-import { fitCanvas } from '../game/renderer.js?v=17c4945d';
-import { buildLook } from '../cosmetics.js?v=17c4945d';
-import { levelOf } from '../progress/achievements.js?v=17c4945d';
-import { utcDayOf } from '../progress/store.js?v=17c4945d';
+} from '../game/sprites-cache.js?v=1c0f08fd';
+import { drawKidLook, drawYouMarker } from '../game/kid-art.js?v=1c0f08fd';
+import { buildLook } from '../cosmetics.js?v=1c0f08fd';
+import { levelOf } from '../progress/achievements.js?v=1c0f08fd';
+import { utcDayOf } from '../progress/store.js?v=1c0f08fd';
 import {
   haptic, hapticSelection, notify, isAppActive, onAppActiveChange,
-} from '../tg.js?v=17c4945d';
-import { play } from '../audio.js?v=17c4945d';
-import * as SIM from './sim.js?v=17c4945d';
+} from '../tg.js?v=1c0f08fd';
+import { play } from '../audio.js?v=1c0f08fd';
+import * as SIM from './sim.js?v=1c0f08fd';
 
 const $ = (id) => document.getElementById(id);
 const ENERGY_MAX = 10;
@@ -318,14 +317,24 @@ export function createPvp({ store, tracker }) {
   function layoutArena() {
     const w = el.arenaBox.clientWidth; const h = el.arenaBox.clientHeight;
     if (!w || !h) return;
-    const fit = fitCanvas(w, h, window.devicePixelRatio || 1);
-    H = fit.H; W = SIM.ARENA_W;
+    // Fit the arena inside the box between the fight HUD and the controls. The field's own
+    // fitCanvas clamps H to ≥256, which on short Telegram viewports pushed the player's row
+    // under the control panel. Here a short box shrinks the whole arena instead.
+    const MIN_H = 180;
+    W = SIM.ARENA_W;
+    let css = w / W;
+    H = Math.floor(h / css);
+    if (H < MIN_H) { H = MIN_H; css = h / MIN_H; }
     el.arena.width = W; el.arena.height = H;
-    el.arena.style.height = `${H * fit.css}px`;
+    el.arena.style.width = `${W * css}px`;
+    el.arena.style.height = `${H * css}px`;
+    el.arena.style.left = `${Math.max(0, (w - W * css) / 2)}px`;
     g.imageSmoothingEnabled = false;
     if (match) { match.me.y = Math.round(0.74 * H); match.op.y = Math.round(0.30 * H); }
   }
   window.addEventListener('resize', () => { if (screen === 'fight') layoutArena(); });
+  // The controls panel appears after the fight screen is shown; re-fit when the box changes.
+  if (window.ResizeObserver) new ResizeObserver(() => { if (screen === 'fight') layoutArena(); }).observe(el.arenaBox);
 
   function loop(now) {
     if (screen !== 'fight' || !match) return;
