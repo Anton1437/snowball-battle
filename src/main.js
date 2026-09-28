@@ -5,27 +5,28 @@
 //             ?feeds=binance,bybit,coinbase,liquidations  only open these sockets (fallback testing)
 //             ?delay=binance:5000  open a venue's socket late (tests late joiners in AGG)
 //             ?progtest=1  allow progress tracking with test params; uses test_-prefixed storage keys
-import { createMarket, SOURCES } from './market/market.js?v=6561619d';
-import { createSourceMenu } from './source-menu.js?v=6561619d';
-import { createRound } from './game/round.js?v=6561619d';
-import { createScene, W } from './game/scene.js?v=6561619d';
-import { createRenderer, fitCanvas } from './game/renderer.js?v=6561619d';
-import { preloadAll } from './game/sprites-cache.js?v=6561619d';
-import { createHud } from './hud.js?v=6561619d';
-import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=6561619d';
+import { createMarket, SOURCES } from './market/market.js?v=c67d170d';
+import { createSourceMenu } from './source-menu.js?v=c67d170d';
+import { createRound } from './game/round.js?v=c67d170d';
+import { createScene, W } from './game/scene.js?v=c67d170d';
+import { createRenderer, fitCanvas } from './game/renderer.js?v=c67d170d';
+import { preloadAll } from './game/sprites-cache.js?v=c67d170d';
+import { createHud } from './hud.js?v=c67d170d';
+import { t, applyDom, setLang, toggleLang, onLangChange, formatUsd } from './i18n.js?v=c67d170d';
 import {
   initTelegram, haptic, hapticSelection, notify, isTelegram, cloudStorage, telegramUser, isAppActive, onAppActiveChange,
-} from './tg.js?v=6561619d';
-import { createStore } from './progress/store.js?v=6561619d';
-import { createTracker } from './progress/tracker.js?v=6561619d';
-import { createProfileUi } from './profile-ui.js?v=6561619d';
-import { createForecasts } from './progress/forecast.js?v=6561619d';
-import { createTutorial } from './tutorial.js?v=6561619d';
-import { APP_VERSION, BUILD } from './version.js?v=6561619d';
-import { createCosmetics } from './wardrobe-ui.js?v=6561619d';
-import { markerTopY } from './game/kid-art.js?v=6561619d';
-import { viewOf } from './cosmetics.js?v=6561619d';
-import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=6561619d';
+} from './tg.js?v=c67d170d';
+import { createStore } from './progress/store.js?v=c67d170d';
+import { createTracker } from './progress/tracker.js?v=c67d170d';
+import { createProfileUi } from './profile-ui.js?v=c67d170d';
+import { createForecasts } from './progress/forecast.js?v=c67d170d';
+import { createTutorial } from './tutorial.js?v=c67d170d';
+import { APP_VERSION, BUILD } from './version.js?v=c67d170d';
+import { createCosmetics } from './wardrobe-ui.js?v=c67d170d';
+import { createPvp } from './pvp/ui.js?v=c67d170d';
+import { markerTopY } from './game/kid-art.js?v=c67d170d';
+import { viewOf } from './cosmetics.js?v=c67d170d';
+import { isSoundEnabled, toggleSound, unlock as unlockAudio, play } from './audio.js?v=c67d170d';
 
 // ---------- config ----------
 const params = new URLSearchParams(location.search);
@@ -33,6 +34,7 @@ const flag = (name) => params.has(name) && !['0', 'false'].includes(params.get(n
 const DEMO = flag('demo');
 const FAST = flag('fast');
 const DEBUG = flag('debug');
+const PVPTEST = flag('pvptest');
 const PROGTEST = flag('progtest');
 // Progress never counts on test links (V105 §0.2) unless explicitly in progress-test mode.
 const PROGRESS_ENABLED = PROGTEST || !['demo', 'fast', 'range', 'feeds'].some((k) => params.has(k));
@@ -141,6 +143,10 @@ profileUi = createProfileUi({
   userName: tgUser?.first_name ?? null,
   play,
 });
+// v1.08: snowball duels vs bots (gamification/PVP-SPEC.md), full-screen overlay over the field.
+const pvp = createPvp({ store, tracker });
+pvp.setEnabled(PROGRESS_ENABLED);
+window.__sb.pvp = pvp;
 onAppActiveChange((active) => {
   appActive = active;
   if (!active) store.flush();
@@ -166,6 +172,7 @@ window.__sb.progress = {
 
 let source = null;
 let pressure = 0;
+pvp.setPressureSource(() => pressure, () => source);
 let fontsReady = false;
 applyRangePolicy(DEMO ? 'DEMO' : null);
 hud.setScore(round.state.score);
@@ -443,6 +450,7 @@ onLangChange(() => {
   menu.render();
   profileUi.render();
   tutorial.relabel();
+  pvp.relabel();
 });
 window.addEventListener('pointerdown', unlockAudio, { passive: true });
 window.addEventListener('keydown', unlockAudio);
@@ -469,10 +477,12 @@ function frame(now) {
   lastFrame = now;
   if (dt > 0) fps += (1 / dt - fps) * 0.05;
   if (!window.__sb.paused) { // __sb.paused freezes the view for inspection (use __sb.step)
-    tickLogic(now);
-    scene.update(dt, { borderT: round.state.borderT, pressure });
-    renderer.draw(round);
-    updateTag();
+    tickLogic(now); // market/round data keeps running behind the PvP overlay (wind needs it)
+    if (!pvp.isOpen()) { // pause the field's heavy per-frame work while a duel is open
+      scene.update(dt, { borderT: round.state.borderT, pressure });
+      renderer.draw(round);
+      updateTag();
+    }
   }
   rafId = requestAnimationFrame(frame);
 }
@@ -515,3 +525,25 @@ if (DEBUG) {
 
 market.start();
 rafId = requestAnimationFrame(frame);
+
+// PvP determinism unit test (PVP-SPEC.md §9, §11 acceptance): same seed + input log replayed
+// twice on src/pvp/sim.js (no DOM) must produce the same outcome and HP both times.
+if (PVPTEST) {
+  import('./pvp/sim.js?v=c67d170d').then((SIM) => {
+    const cfg = {
+      seed: 305441741, myPoints: [2, 1, 2, 0, 1], botTier: 'T3', botPersona: 'kirpich',
+      botPoints: [1, 2, 1, 1, 0], y: { me: 220, op: 90 }, windSeries: [[0, 0.02], [300, -0.03], [600, 0.01]],
+    };
+    // a hand-built log: step, throw lane 1 (charged), duck on/off, throw lane 0, giant attempt
+    const log = [[30, 4, 0], [40, 1], [50, 4 + 1, 20], [30, 2], [25, 3], [45, 0], [20, 4 + 2, 0], [60, 8]];
+    const a = SIM.runReplay(cfg, log);
+    const b = SIM.runReplay(cfg, log);
+    const same = a.tick === b.tick && a.me.hp === b.me.hp && a.op.hp === b.op.hp
+      && JSON.stringify(a.result) === JSON.stringify(b.result);
+    const msg = `[pvptest] deterministic replay: ${same ? 'PASS' : 'FAIL'} tickA=${a.tick} tickB=${b.tick} resultA=${JSON.stringify(a.result)} resultB=${JSON.stringify(b.result)}`;
+    // eslint-disable-next-line no-console
+    console[same ? 'log' : 'error'](msg);
+    document.title = `pvptest:${same ? 'PASS' : 'FAIL'}`;
+    window.__sb.pvptest = { same, a, b };
+  });
+}

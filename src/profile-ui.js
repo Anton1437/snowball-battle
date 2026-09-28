@@ -2,12 +2,12 @@
 // sheet (bottom sheet on phone, centred modal on wide), wide side-panel sections, the
 // round-guess / time-forecast bar, the "backing today" prompt and a shared toast queue.
 // Styling per design/DESIGN.md §8 and §10; readable text uses the --font-read token.
-import { t, getLang, formatPrice } from './i18n.js?v=6561619d';
-import { spriteDataUrl, compositeDataUrl } from './game/sprites-cache.js?v=6561619d';
-import { ACHIEVEMENTS, RARITY_XP, levelOf } from './progress/achievements.js?v=6561619d';
-import { HORIZONS } from './progress/forecast.js?v=6561619d';
-import { backButton, hapticSelection, notify } from './tg.js?v=6561619d';
-import { createKidCard, createWardrobe, itemPreviewUrl } from './wardrobe-ui.js?v=6561619d';
+import { t, getLang, formatPrice } from './i18n.js?v=c67d170d';
+import { spriteDataUrl, compositeDataUrl } from './game/sprites-cache.js?v=c67d170d';
+import { ACHIEVEMENTS, RARITY_XP, levelOf } from './progress/achievements.js?v=c67d170d';
+import { HORIZONS } from './progress/forecast.js?v=c67d170d';
+import { backButton, hapticSelection, notify } from './tg.js?v=c67d170d';
+import { createKidCard, createWardrobe, itemPreviewUrl } from './wardrobe-ui.js?v=c67d170d';
 
 const TOAST_HOLD_MS = 2500;
 const TOAST_POP = [{ transform: 'scale(0.2)' }, { transform: 'scale(1)' }];
@@ -92,7 +92,7 @@ export function createProfileUi({ store, tracker, forecasts, cosmetics, enabled,
     el.btn.hidden = false;
     const side = tracker.sideState().picked;
     el.btnIcon.src = side === 'g' ? spriteDataUrl('icon_head_back', 'green', 2)
-      : side === 'r' ? spriteDataUrl('icon_head_front', 'red', 2) : spriteDataUrl('ball_big', 'green', 2);
+      : side === 'r' ? spriteDataUrl('icon_head_front', 'red', 2) : spriteDataUrl('icon_head_back', 'green', 2);
     const { level } = levelOf(p().xp);
     el.btnLevel.textContent = level;
     const dot = cosmetics.hasUnseen();

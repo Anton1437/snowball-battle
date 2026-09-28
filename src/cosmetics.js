@@ -7,8 +7,8 @@
 // pet_* / back_* / fx_* sprites. Everything here degrades gracefully while any of it is
 // missing: overlays without a sprite or hat point are skipped, swaps/trails/frames fall back
 // to palette colours below.
-import * as ART from './sprites.js?v=6561619d';
-import { levelOf } from './progress/achievements.js?v=6561619d';
+import * as ART from './sprites.js?v=c67d170d';
+import { levelOf } from './progress/achievements.js?v=c67d170d';
 
 export const SLOTS = ['hat', 'scarf', 'mitt', 'pet', 'back', 'aura', 'trim', 'trail', 'frame'];
 // keys in p.eq — short, and distinct from every other top-level profile field.

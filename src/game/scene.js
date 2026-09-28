@@ -3,8 +3,8 @@
 //
 // Teams: 'red' = sellers, TOP, front view (trapper hat). 'green' = buyers, BOTTOM, back view (beanie).
 // Market side → team: 'buy' → green, 'sell' → red.
-import { SPRITES, TEAM_COLORS, PALETTE } from '../sprites.js?v=6561619d';
-import { createCamera } from './camera.js?v=6561619d';
+import { SPRITES, TEAM_COLORS, PALETTE } from '../sprites.js?v=c67d170d';
+import { createCamera } from './camera.js?v=c67d170d';
 
 export const W = 192;
 export const AXIS_X = 168;

@@ -2,9 +2,9 @@
 // guesses, "seen" market events, XP with daily caps, achievements. Only counts while the
 // source is live (never DEMO/null), the page is visible, test URL params are absent (unless
 // ?progtest=1) and this tab holds the multi-tab lock. Durations use monotonic time only.
-import { utcDayOf } from './store.js?v=6561619d';
-import { checkAll, RARITY_XP } from './achievements.js?v=6561619d';
-import { isGuessLocked, roundSig } from './guess.js?v=6561619d';
+import { utcDayOf } from './store.js?v=c67d170d';
+import { checkAll, RARITY_XP } from './achievements.js?v=c67d170d';
+import { isGuessLocked, roundSig } from './guess.js?v=c67d170d';
 
 const TICK_MS = 1000;
 const MAX_STEP_S = 1.5;
@@ -14,11 +14,13 @@ const EARLY_GUESS_S = 10;
 const ROUND_MIN_S = 30;
 const ROUND_VISIBLE_SHARE = 0.6;
 const XP = { day: 20, minute: 1, round: 3, guess: 5, guessWin: 10 };
-// Daily XP caps per UTC day: xd = [watch, guess, round, forecastShort, forecastLong].
+// Daily XP caps per UTC day: xd = [watch, guess, round, forecastShort, forecastLong, pvp].
 // Long horizons (1ч/4ч/24ч) have their own bucket so farming 1-minute forecasts can never
 // crowd out the 24ч payout (80): 160 = one of each long horizon + room for a few 1ч.
-const XP_CAP = { watch: 30, guess: 60, round: 30, fcShort: 60, fcLong: 160 };
-const XD_INDEX = { watch: 0, guess: 1, round: 2, fcShort: 3, fcLong: 4 };
+// pvp (PVP-SPEC.md, owner decision): 60 XP/UTC day, its own bucket so extra bot duels bought
+// with energy (⭐, v1.1) can't speed up levelling past the daily cap.
+const XP_CAP = { watch: 30, guess: 60, round: 30, fcShort: 60, fcLong: 160, pvp: 60 };
+const XD_INDEX = { watch: 0, guess: 1, round: 2, fcShort: 3, fcLong: 4, pvp: 5 };
 const LIVE_SOURCES = new Set(['AGG', 'BINANCE', 'BYBIT', 'COINBASE']);
 
 export function createTracker({ store, round, enabled, isVisibleExtra = () => true, hooks = {} }) {
@@ -29,6 +31,9 @@ export function createTracker({ store, round, enabled, isVisibleExtra = () => tr
   let minuteFrac = 0;             // seconds toward the next watch-XP minute
   let dayLiveSeconds = 0;         // visible live seconds this session in the current day (side prompt)
   let sidePromptShown = false;
+  // PvP overlay open (PVP-SPEC.md §11.1): watch-time XP stops, but presence still counts for
+  // the round's "≥60% visible" rule below — a duel must not silently fail a round's guess.
+  let pvpOpen = false;
   // current round bookkeeping (monotonic)
   const rnd = { sig: null, startMono: 0, visibleS: 0, eligible: false, guessMono: 0, giantSides: new Set() };
 
@@ -71,7 +76,7 @@ export function createTracker({ store, round, enabled, isVisibleExtra = () => tr
     if (d <= q.day) return false;
     q.day = d;
     q.wd = 0;
-    q.xd = [0, 0, 0, 0, 0];
+    q.xd = [0, 0, 0, 0, 0, 0];
     if (q.st[2] < d - 1) q.st[0] = 0; // streak broken
     dayLiveSeconds = 0;
     sidePromptShown = false;
@@ -96,21 +101,23 @@ export function createTracker({ store, round, enabled, isVisibleExtra = () => tr
     let dirty = rollDay();
     if (tracking()) {
       const q = p();
-      watchFrac += dt;
-      const whole = Math.floor(watchFrac);
-      if (whole > 0) {
-        watchFrac -= whole;
-        q.w += whole;
-        q.wd += whole;
-        dirty = true;
+      if (!pvpOpen) { // PvP screen time earns no watch-XP (PVP-SPEC.md §11.1)
+        watchFrac += dt;
+        const whole = Math.floor(watchFrac);
+        if (whole > 0) {
+          watchFrac -= whole;
+          q.w += whole;
+          q.wd += whole;
+          dirty = true;
+        }
+        minuteFrac += dt;
+        if (minuteFrac >= 60) {
+          minuteFrac -= 60;
+          addXp(XP.minute, 'watch');
+        }
+        if (q.wd >= ACTIVE_DAY_WATCH_S) markActiveDay();
       }
-      minuteFrac += dt;
-      if (minuteFrac >= 60) {
-        minuteFrac -= 60;
-        addXp(XP.minute, 'watch');
-      }
-      if (q.wd >= ACTIVE_DAY_WATCH_S) markActiveDay();
-      rnd.visibleS += dt;
+      rnd.visibleS += dt; // presence still counts toward a round's ≥60%-visible rule
       dayLiveSeconds += dt;
       if (!sidePromptShown && dayLiveSeconds >= SIDE_PROMPT_AFTER_S && q.sd?.[0] !== q.day) {
         sidePromptShown = true;
@@ -287,6 +294,7 @@ export function createTracker({ store, round, enabled, isVisibleExtra = () => tr
     rollDay,
     markActiveDay,
     get visible() { return visible(); },
+    setPvpOpen(v) { pvpOpen = !!v; },
     stop() { clearInterval(timer); },
     _round: rnd,
   };

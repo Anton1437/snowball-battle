@@ -44,6 +44,19 @@ export const ACHIEVEMENTS = [
     check: (p) => p.fd[0] === p.day && p.fd[1] === 0b111111,
     progress: (p) => count(p.fd[0] === p.day ? popcount(p.fd[1]) : 0, 6),
   },
+  // ---------- v1.08: PvP duels vs bots (PVP-SPEC.md §6.3). p.pv.c = [giant hits landed,
+  // wins over a T5 bot, 100HP wins, total duels]; p.pv.w = [wins, losses, draws, streak, best].
+  // ctx.pvp (only right after a duel ends) carries the per-duel flags the counters don't keep.
+  { id: 'pvp_first', rarity: 'common', icon: ['ball_small', 'green', 2], check: (p) => (p.pv?.c?.[3] || 0) >= 1, progress: (p) => count(p.pv?.c?.[3], 1) },
+  { id: 'pvp_win', rarity: 'common', icon: ['crown', 'green', 2], check: (p) => (p.pv?.w?.[0] || 0) >= 1, progress: (p) => count(p.pv?.w?.[0], 1) },
+  { id: 'pvp_giant', rarity: 'common', icon: ['giant_back_idle', 'green', 1], check: (p) => (p.pv?.c?.[0] || 0) >= 1, progress: (p) => count(p.pv?.c?.[0], 1) },
+  { id: 'pvp_sniper', rarity: 'rare', icon: ['ach_target', 'green', 2], check: (p, ctx) => !!ctx?.pvp?.sniper },
+  { id: 'pvp_fortress', rarity: 'rare', icon: ['fort_back', 'green', 2], check: (p, ctx) => !!ctx?.pvp?.fortress },
+  { id: 'pvp_clutch', rarity: 'rare', icon: ['ach_flame', 'green', 2], check: (p, ctx) => !!ctx?.pvp?.clutch },
+  { id: 'pvp_headwind', rarity: 'rare', icon: ['flag_team', 'red', 2], check: (p, ctx) => !!ctx?.pvp?.headwind },
+  { id: 'pvp_flawless', rarity: 'epic', icon: ['ach_iceball', 'green', 2], check: (p) => (p.pv?.c?.[2] || 0) >= 1, progress: (p) => count(p.pv?.c?.[2], 1) },
+  { id: 'pvp_streak5', rarity: 'epic', icon: ['ach_calendar', 'green', 2], check: (p) => (p.pv?.w?.[3] || 0) >= 5, progress: (p) => count(p.pv?.w?.[3], 5) },
+  { id: 'pvp_legend', rarity: 'legendary', icon: ['crown', 'green', 2], check: (p) => (p.pv?.c?.[1] || 0) >= 1, progress: (p) => count(p.pv?.c?.[1], 1) },
 ];
 
 function popcount(n) {

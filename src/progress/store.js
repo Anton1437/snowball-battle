@@ -28,10 +28,25 @@ const emptyFh = () => Array.from({ length: HORIZON_COUNT }, () => [0, 0, 0, 0, 0
 //         (DESIGN.md §12) adds three more optional slot keys, still short catalog-id strings:
 //         p (pet), k (back item), u (aura), x (trim).
 //   seen: [notifiedMask, wardrobeViewedMask] over the append-only cosmetics catalog
+// v1.08 (PVP-SPEC.md §10.1, optional field):
+//   xd[5] = PvP XP for the day (xd now has 6 slots).
+//   pv: { s:[5 skill points], rs: UTC day of the last free respec, e:[energy, msOfLastRecalc],
+//         r: league-with-bots rating, w:[wins, losses, draws, streak, bestStreak],
+//         c:[giant hits landed, T5 wins, 100HP wins, total duels], tu: 1 once the PvP tutorial
+//         (first 3 duels) is done }
+export function defaultPv(day) {
+  return {
+    s: [0, 0, 0, 0, 0], rs: day, e: [10, Date.now()], r: 1000,
+    w: [0, 0, 0, 0, 0], c: [0, 0, 0, 0], tu: 0,
+    lw: day - 1, // UTC day of the last PvP win (first win of the day → +20 XP, §6.3); not in the
+                 // spec's §10.1 table but small (one int) and keeps the "first win today" bonus
+                 // correct across reloads instead of only within one session.
+  };
+}
 export function defaultProfile(day, uid = null) {
   return {
     v: SCHEMA_VERSION, rev: 0, uid, d0: day, day,
-    w: 0, wd: 0, xd: [0, 0, 0, 0, 0],
+    w: 0, wd: 0, xd: [0, 0, 0, 0, 0, 0],
     rw: 0, gi: 0, wh: 0, lq: 0, av: 0,
     g: [0, 0, 0, 0, 0],
     sd: null, ly: null,
@@ -45,6 +60,7 @@ export function defaultProfile(day, uid = null) {
     tu: 0,
     eq: {},
     seen: null, // null until first initialised (so upgrading users don't get a toast storm)
+    pv: defaultPv(day),
   };
 }
 
@@ -68,6 +84,9 @@ function migrate(data, day, uid) {
       out.fd = Array.isArray(d.fd) ? d.fd : base.fd;
       out.eq = d.eq && typeof d.eq === 'object' ? d.eq : {};
       out.seen = Array.isArray(d.seen) && d.seen.length === 2 ? d.seen : null;
+      // xd grew a 6th slot (PvP daily XP) in v1.08; pad older profiles instead of truncating them.
+      out.xd = Array.isArray(d.xd) ? [...d.xd.slice(0, 6), ...Array(Math.max(0, 6 - d.xd.length)).fill(0)] : base.xd;
+      out.pv = d.pv && typeof d.pv === 'object' ? { ...base.pv, ...d.pv } : base.pv;
       return out;
     }
     default:
@@ -96,6 +115,32 @@ export function merge(local, cloud) {
   out.fh = (newer.fh || emptyFh()).map((row, h) => row.map((v, i) => (i === 2 ? v : maxOf(local.fh?.[h]?.[i], cloud.fh?.[h]?.[i]))));
   out.tu = maxOf(local.tu, cloud.tu);
   out.eq = { ...(newer.eq || {}) }; // equipment from the newer copy
+  // PvP (PVP-SPEC.md §10.1): w[0..2]/w[4]/c by max; e = smaller energy after recomputing both
+  // copies' regen to "now"; s/rs/r/w[3] from whichever copy has the larger rev.
+  {
+    const lp = local.pv || defaultPv(local.day);
+    const cp = cloud.pv || defaultPv(cloud.day);
+    const nowMs = Date.now();
+    const recalcEnergy = (e) => {
+      const [amt, at] = Array.isArray(e) ? e : [10, nowMs];
+      const gained = Math.floor(Math.max(0, nowMs - at) / (6 * 60 * 1000));
+      return Math.min(10, (amt || 0) + gained);
+    };
+    const pvNewer = (cloud.rev || 0) >= (local.rev || 0) ? cp : lp;
+    const w = [...(pvNewer.w || defaultPv(0).w)];
+    for (const i of [0, 1, 2, 4]) w[i] = maxOf(lp.w?.[i], cp.w?.[i]);
+    w[3] = pvNewer.w?.[3] || 0;
+    out.pv = {
+      s: pvNewer.s || defaultPv(0).s,
+      rs: pvNewer.rs ?? out.day,
+      r: pvNewer.r ?? 1000,
+      lw: pvNewer.lw ?? out.day - 1,
+      w,
+      c: (pvNewer.c || defaultPv(0).c).map((v, i) => maxOf(lp.c?.[i], cp.c?.[i])),
+      tu: maxOf(lp.tu, cp.tu),
+      e: [Math.min(recalcEnergy(lp.e), recalcEnergy(cp.e)), nowMs],
+    };
+  }
   if (local.seen || cloud.seen) {   // seen flags: union (BigInt masks stored as decimal strings)
     const a = local.seen || ['0', '0'];
     const b = cloud.seen || ['0', '0'];

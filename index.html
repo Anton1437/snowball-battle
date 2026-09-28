@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Press+Start+2P&family=Tiny5&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=6561619d">
+  <link rel="stylesheet" href="styles.css?v=c67d170d">
 </head>
 <body>
   <div id="app" class="app">
@@ -37,6 +37,9 @@
             <div class="toggles">
               <button id="btn-profile" class="btn btn-icon btn-profile" type="button" aria-haspopup="dialog" hidden>
                 <img id="btn-profile-icon" class="px-icon" alt=""><span id="btn-profile-level" class="lvl-badge"></span>
+              </button>
+              <button id="btn-pvp" class="btn btn-icon btn-pvp" type="button" aria-haspopup="dialog" hidden>
+                <img id="btn-pvp-icon" class="px-icon" alt=""><span id="btn-pvp-energy" class="pvp-energy-badge"></span>
               </button>
               <button id="btn-sound" class="btn btn-icon" type="button" aria-pressed="false">
                 <svg class="ico-sound" viewBox="0 0 10 8" width="20" height="16" aria-hidden="true" shape-rendering="crispEdges">
@@ -223,6 +226,117 @@
     </div>
   </div>
 
-  <script type="module" src="src/main.js?v=6561619d"></script>
+  <!-- Snowball duels (v1.08, gamification/PVP-SPEC.md): full-screen overlay over the field.
+       Built once; screens are shown/hidden by toggling .on, never rebuilt (HANDOFF.md timers rule). -->
+  <div id="pvp" class="pvp" hidden role="dialog" aria-modal="true" aria-label="PvP">
+    <div class="pvp-bar">
+      <button id="pvp-close" class="btn btn-icon" type="button" data-i18n-aria="menu.close">
+        <svg viewBox="0 0 7 7" width="14" height="14" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></svg>
+      </button>
+      <span class="pvp-bar-title" data-i18n="pvp.title"></span>
+      <span class="pvp-bar-spacer" aria-hidden="true"></span>
+    </div>
+
+    <!-- ENTRY -->
+    <section id="pvp-entry" class="pvp-screen">
+      <div class="pvp-sec">
+        <div class="panel pvp-panel pvp-league">
+          <img id="pvp-league-icon" class="px-icon" alt="">
+          <div class="pvp-grow">
+            <div class="pvp-d8 pvp-gold" id="pvp-league-name"></div>
+            <div class="pvp-dim" id="pvp-league-sub"></div>
+            <div class="pvp-progress"><i id="pvp-league-fill"></i></div>
+            <div class="pvp-d8 pvp-dim" id="pvp-league-streak"></div>
+          </div>
+        </div>
+      </div>
+      <div class="pvp-sec">
+        <div class="panel pvp-panel">
+          <div class="pvp-row pvp-space"><span class="pvp-d8" id="pvp-energy-label"></span><span class="pvp-dim" id="pvp-energy-regen"></span></div>
+          <div class="pvp-pips" id="pvp-pips"></div>
+          <div class="pvp-dim" id="pvp-xp-today" style="margin-top:6px"></div>
+        </div>
+      </div>
+      <div class="pvp-sec">
+        <div class="panel pvp-panel pvp-opp">
+          <canvas id="pvp-opp-preview" width="14" height="20"></canvas>
+          <div class="pvp-grow">
+            <div class="pvp-row" style="gap:6px"><span id="pvp-opp-name"></span></div>
+            <div class="pvp-row" style="gap:6px;margin-top:3px"><span class="pvp-badge-bot" data-i18n="pvp.botBadge"></span><span class="pvp-d8 pvp-dim" id="pvp-opp-meta"></span></div>
+            <div class="pvp-dim" id="pvp-opp-desc" style="margin-top:3px"></div>
+          </div>
+        </div>
+      </div>
+      <div class="pvp-menu">
+        <button class="btn pvp-btn primary" id="pvp-start-bot" type="button"><span data-i18n="pvp.withBot"></span><span class="pvp-d8" data-i18n="pvp.minusEnergy"></span></button>
+        <button class="btn pvp-btn" id="pvp-start-practice" type="button"><span data-i18n="pvp.practice"></span><span class="pvp-d8 pvp-dim" data-i18n="pvp.noReward"></span></button>
+        <button class="btn pvp-btn" type="button" disabled><span data-i18n="pvp.findOpponent"></span><span class="pvp-d8" data-i18n="pvp.soon"></span></button>
+        <div class="pvp-row pvp-space"><button class="btn pvp-btn" id="pvp-open-stats" type="button" style="flex:1"></button></div>
+        <div class="pvp-d8 pvp-dim" style="text-align:center" data-i18n="pvp.starsNote"></div>
+      </div>
+    </section>
+
+    <!-- FIGHT -->
+    <section id="pvp-fight" class="pvp-screen">
+      <div class="pvp-fhud">
+        <div class="pvp-row"><img class="px-icon" id="pvp-fhud-icon" alt=""><span class="pvp-grow pvp-ellipsis" id="pvp-fhud-name"></span><span class="pvp-badge-bot" data-i18n="pvp.botBadge"></span></div>
+        <div class="pvp-row"><div class="pvp-hp r"><i id="pvp-hp-opp" style="width:100%"></i><b id="pvp-hp-opp-t">100</b></div><div class="pvp-timer" id="pvp-timer">45</div></div>
+        <div class="pvp-wind" id="pvp-wind"></div>
+      </div>
+      <div class="pvp-arena" id="pvp-arena-box">
+        <canvas id="pvp-arena" width="192" height="300"></canvas>
+        <div class="pvp-cols" id="pvp-cols"><div></div><div></div><div></div></div>
+        <div class="pvp-hint" id="pvp-hint"></div>
+        <button class="pvp-giantbtn" id="pvp-giant-btn" type="button"><img class="px-icon" id="pvp-giant-icon" alt=""><span data-i18n="pvp.giant"></span></button>
+        <div class="pvp-over" id="pvp-over"><div class="pvp-band" id="pvp-over-band"></div><button class="btn pvp-btn primary" id="pvp-over-go" type="button" data-i18n="pvp.toResult"></button></div>
+      </div>
+      <div class="pvp-ctrl">
+        <div class="pvp-mebars"><img class="px-icon" id="pvp-me-icon" alt=""><div class="pvp-hp g"><i id="pvp-hp-me" style="width:100%"></i><b id="pvp-hp-me-t">100</b></div><div class="pvp-stam"><i id="pvp-stam"></i></div></div>
+        <div class="pvp-btns">
+          <button class="btn pvp-btn" id="pvp-btn-left" type="button">◀</button>
+          <button class="btn pvp-btn pvp-duck" id="pvp-btn-duck" type="button"><span data-i18n="pvp.duck"></span><br><span class="pvp-dim" data-i18n="pvp.holdIt"></span></button>
+          <button class="btn pvp-btn" id="pvp-btn-right" type="button">▶</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESULT -->
+    <section id="pvp-result" class="pvp-screen">
+      <div class="pvp-rband" id="pvp-rband"><span id="pvp-rband-title"></span><small id="pvp-rband-sub"></small></div>
+      <canvas id="pvp-res-art" width="192" height="70"></canvas>
+      <div class="pvp-sec">
+        <div class="panel pvp-panel pvp-kv" id="pvp-r-kv"></div>
+      </div>
+      <div class="pvp-sec" style="padding-top:0">
+        <div class="pvp-d8 pvp-gold" style="margin-bottom:6px" id="pvp-r-ach-title" data-i18n="pvp.newAch"></div>
+        <div class="pvp-chips" id="pvp-r-ach"></div>
+      </div>
+      <div class="pvp-menu">
+        <button class="btn pvp-btn primary" id="pvp-again" type="button"><span data-i18n="pvp.again"></span><span class="pvp-d8" data-i18n="pvp.minusEnergy"></span></button>
+        <button class="btn pvp-btn" id="pvp-r-stats" type="button"><span data-i18n="pvp.statsBtn"></span></button>
+      </div>
+    </section>
+
+    <!-- STATS -->
+    <section id="pvp-stats" class="pvp-screen">
+      <div class="pvp-sec">
+        <div class="panel pvp-panel">
+          <div class="pvp-row pvp-space"><span class="pvp-d8" data-i18n="pvp.skillPoints"></span><span class="pvp-d8 pvp-gold" id="pvp-free"></span></div>
+          <div class="pvp-dim" style="margin-top:4px" id="pvp-stats-note"></div>
+        </div>
+      </div>
+      <div class="pvp-sec" id="pvp-stat-list"></div>
+      <div class="pvp-sec">
+        <div class="panel pvp-panel">
+          <div class="pvp-d8" style="margin-bottom:4px" data-i18n="pvp.ruleTitle"></div>
+          <div class="pvp-dim" data-i18n="pvp.ruleBody"></div>
+          <div class="pvp-row" style="margin-top:8px"><button class="btn pvp-btn" id="pvp-respec" type="button" style="flex:1"></button></div>
+          <div class="pvp-d8 pvp-dim" style="margin-top:6px" id="pvp-respec-note"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="src/main.js?v=c67d170d"></script>
 </body>
 </html>
